@@ -81,6 +81,89 @@ function createLabel(text: string, color = "#0d528e") {
   return sprite;
 }
 
+function createWallSign(text: string, accent = "#1b78a6") {
+  const canvas = document.createElement("canvas");
+  canvas.width = 768;
+  canvas.height = 180;
+  const context = canvas.getContext("2d")!;
+  context.fillStyle = "#f3f7f8";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = accent;
+  context.fillRect(0, 0, 22, canvas.height);
+  context.fillStyle = "#173d58";
+  context.font = "800 54px Arial";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, 398, 90);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.7, 0.87),
+    new THREE.MeshStandardMaterial({ map: texture, roughness: 0.7 }),
+  );
+  sign.userData.disposeMap = texture;
+  return sign;
+}
+
+function makeTireRack(scene: THREE.Scene, x: number, z: number) {
+  const rack = new THREE.Group();
+  box(rack, [3.2, 0.12, 0.65], [0, 0.32, 0], 0x364753, 0.42, 0.45);
+  box(rack, [3.2, 0.12, 0.65], [0, 1.42, 0], 0x364753, 0.42, 0.45);
+  for (const side of [-1, 1]) box(rack, [0.12, 2.15, 0.65], [side * 1.54, 1.08, 0], 0x364753, 0.42, 0.45);
+  for (const y of [0.77, 1.86]) {
+    for (let i = 0; i < 4; i++) {
+      const tire = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.14, 10, 24), material(0x20262b, 0.82));
+      tire.position.set(-1.15 + i * 0.76, y, 0);
+      tire.rotation.y = Math.PI / 2;
+      tire.castShadow = true;
+      rack.add(tire);
+    }
+  }
+  rack.position.set(x, 0, z);
+  scene.add(rack);
+}
+
+function makeToolWall(scene: THREE.Scene, x: number, z: number) {
+  const wall = new THREE.Group();
+  box(wall, [4.3, 2.35, 0.16], [0, 1.68, 0], 0x315d70, 0.72, 0.15);
+  for (let row = 0; row < 5; row++) {
+    for (let column = 0; column < 12; column++) {
+      cylinder(wall, 0.018, 0.02, [-1.88 + column * 0.34, 0.78 + row * 0.38, 0.1], 0x91aab5, 8).rotation.x = Math.PI / 2;
+    }
+  }
+  for (let i = 0; i < 9; i++) {
+    box(wall, [0.08, 0.78 - (i % 3) * 0.08, 0.07], [-1.65 + i * 0.4, 1.72, 0.16], i < 5 ? 0xd7dde0 : 0xe7a93b, 0.3, 0.65).rotation.z = i % 2 ? 0.08 : -0.08;
+  }
+  for (let i = 0; i < 4; i++) box(wall, [0.18, 0.62, 0.12], [-0.65 + i * 0.5, 0.92, 0.18], 0xc84c3f, 0.55);
+  wall.position.set(x, 0, z);
+  scene.add(wall);
+}
+
+function makeEngineStand(scene: THREE.Scene, x: number, z: number) {
+  const stand = new THREE.Group();
+  box(stand, [2.15, 0.16, 1.25], [0, 0.18, 0], 0x33444f, 0.45, 0.5);
+  box(stand, [0.16, 1.45, 0.16], [-0.84, 0.83, 0], 0x33444f, 0.45, 0.5);
+  box(stand, [0.55, 0.16, 0.9], [-0.58, 1.43, 0], 0x33444f, 0.45, 0.5);
+  box(stand, [1.05, 0.72, 0.86], [0.12, 1.34, 0], 0x46535c, 0.52, 0.5);
+  box(stand, [0.86, 0.28, 0.72], [0.1, 1.82, 0], 0x26343d, 0.44, 0.45);
+  for (let i = 0; i < 4; i++) cylinder(stand, 0.085, 0.62, [-0.23 + i * 0.18, 1.98, 0], 0xb8c0c4, 12).rotation.z = Math.PI / 2;
+  for (const px of [-0.82, 0.82]) for (const pz of [-0.45, 0.45]) cylinder(stand, 0.11, 0.09, [px, 0.08, pz], 0x1e252a, 14).rotation.z = Math.PI / 2;
+  stand.position.set(x, 0, z);
+  scene.add(stand);
+}
+
+function makeSafetyStation(scene: THREE.Scene, x: number, z: number) {
+  const station = new THREE.Group();
+  box(station, [1.9, 2.1, 0.15], [0, 1.45, 0], 0xf1f4f2, 0.75);
+  box(station, [0.48, 0.48, 0.13], [-0.48, 1.88, 0.13], 0x2aa36c, 0.6);
+  box(station, [0.11, 0.34, 0.16], [-0.48, 1.88, 0.21], 0xffffff, 0.7);
+  box(station, [0.34, 0.11, 0.16], [-0.48, 1.88, 0.21], 0xffffff, 0.7);
+  cylinder(station, 0.2, 0.78, [0.5, 0.78, 0.22], 0xd7453e, 18);
+  box(station, [0.28, 0.17, 0.16], [0.5, 1.22, 0.22], 0x252f35, 0.5);
+  station.position.set(x, 0, z);
+  scene.add(station);
+}
+
 function makeCar(scene: THREE.Scene) {
   const car = new THREE.Group();
   const bodyMat = material(0xe7eaed, 0.24, 0.58);
@@ -289,6 +372,10 @@ export default function WorkshopScene({
     floorGrid.material.transparent = true;
     scene.add(floorGrid);
     for (const z of [-4.15, 2.15]) box(scene, [13.5, 0.018, 0.11], [1.4, 0.016, z], 0xf1c94d);
+    for (const x of [-4.9, 7.7]) {
+      box(scene, [0.11, 0.02, 5.9], [x, 0.018, -1.0], 0xf1c94d);
+      box(scene, [0.58, 0.021, 0.13], [x, 0.019, 2.1], 0xf1c94d);
+    }
 
     box(scene, [34, 7.5, 0.35], [0, 3.75, -10.4], 0xdde6e8);
     box(scene, [0.35, 7.5, 25], [-16.8, 3.75, 0], 0xd7e2e6);
@@ -300,6 +387,17 @@ export default function WorkshopScene({
     workshopSign.scale.set(7, 1.35, 1);
     scene.add(workshopSign);
 
+    const diagnosisSign = createWallSign("ZONA 02 · DIAGNÓSTICO");
+    diagnosisSign.position.set(2.2, 5.35, -10.15);
+    scene.add(diagnosisSign);
+    const toolsSign = createWallSign("ZONA 03 · HERRAMIENTAS", "#d59a2b");
+    toolsSign.position.set(-10.8, 5.2, -10.14);
+    scene.add(toolsSign);
+    const injectionSign = createWallSign("SISTEMA DE INYECCIÓN", "#2b9b78");
+    injectionSign.position.set(10.2, 3.35, -10.13);
+    injectionSign.scale.set(0.92, 0.92, 0.92);
+    scene.add(injectionSign);
+
     for (const x of [-9.8, -6.9, 8.7, 11.6]) {
       box(scene, [2.2, 1.15, 0.9], [x, 0.58, -7.5], 0xc93232, 0.5);
       box(scene, [2.4, 0.14, 1.05], [x, 1.21, -7.5], 0x263443, 0.35);
@@ -309,6 +407,36 @@ export default function WorkshopScene({
     for (let i = 0; i < 8; i++) box(scene, [0.08, 0.9, 0.08], [-12.4 + i * 0.38, 1.55, -2.72], i % 2 ? 0xf2bd40 : 0xb7c4ca);
     box(scene, [4.1, 2.8, 0.22], [10.15, 1.4, -9.95], 0xf6fafb);
     box(scene, [3.4, 1.2, 0.8], [10.15, 0.6, -8.15], 0x596f7b);
+
+    makeToolWall(scene, -11.1, -2.78);
+    makeTireRack(scene, 13.2, -7.75);
+    makeEngineStand(scene, 11.9, 5.9);
+    makeSafetyStation(scene, -15.95, -7.55);
+
+    // Compact support equipment keeps the circulation corridor around the mission vehicle clear.
+    const compressor = new THREE.Group();
+    cylinder(compressor, 0.52, 1.65, [0, 0.7, 0], 0x2f7086, 24).rotation.z = Math.PI / 2;
+    box(compressor, [0.65, 0.48, 0.5], [-0.45, 1.32, 0], 0x374852, 0.5, 0.35);
+    for (const px of [-0.62, 0.62]) cylinder(compressor, 0.15, 0.12, [px, 0.16, 0], 0x242b30, 14).rotation.z = Math.PI / 2;
+    compressor.position.set(14.6, 0, 7.4);
+    scene.add(compressor);
+
+    const partsShelf = new THREE.Group();
+    for (const y of [0.35, 1.12, 1.89, 2.66]) box(partsShelf, [3.5, 0.12, 0.82], [0, y, 0], 0x465760, 0.48, 0.42);
+    for (const side of [-1, 1]) box(partsShelf, [0.14, 2.95, 0.82], [side * 1.68, 1.48, 0], 0x3c4d56, 0.48, 0.42);
+    const partColors = [0x2b8fab, 0xd6a13d, 0x4f626c, 0xb6433d];
+    for (let row = 0; row < 3; row++) for (let column = 0; column < 4; column++) box(partsShelf, [0.62, 0.42, 0.58], [-1.16 + column * 0.77, 0.66 + row * 0.77, 0], partColors[(row + column) % partColors.length], 0.72);
+    partsShelf.position.set(14.55, 0, 1.4);
+    scene.add(partsShelf);
+
+    const injectionBench = new THREE.Group();
+    box(injectionBench, [3.2, 0.18, 1.05], [0, 1.03, 0], 0x5b6b72, 0.38, 0.48);
+    for (const px of [-1.38, 1.38]) for (const pz of [-0.38, 0.38]) box(injectionBench, [0.14, 1.02, 0.14], [px, 0.51, pz], 0x3b4950, 0.45, 0.45);
+    box(injectionBench, [2.25, 0.12, 0.32], [0, 1.22, 0], 0xb8c3c7, 0.4, 0.6);
+    for (let i = 0; i < 4; i++) cylinder(injectionBench, 0.07, 0.38, [-0.58 + i * 0.38, 1.43, 0], 0x35505d, 12);
+    box(injectionBench, [0.78, 0.52, 0.12], [0.95, 1.35, 0], 0x21769a, 0.48);
+    injectionBench.position.set(9.7, 0, 8.65);
+    scene.add(injectionBench);
 
     for (const z of [-3.55, 1.15]) {
       box(scene, [0.48, 5.9, 0.48], [0.25, 2.95, z], 0x1464a5, 0.35);
@@ -620,7 +748,10 @@ export default function WorkshopScene({
         if (object instanceof THREE.Mesh) {
           object.geometry.dispose();
           const materials = Array.isArray(object.material) ? object.material : [object.material];
-          materials.forEach((entry) => entry.dispose());
+          materials.forEach((entry) => {
+            if ("map" in entry && entry.map instanceof THREE.Texture) entry.map.dispose();
+            entry.dispose();
+          });
         }
         if (object instanceof THREE.Sprite) object.material.map?.dispose();
       });
