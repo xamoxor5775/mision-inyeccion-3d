@@ -4,8 +4,6 @@ import {
   AlertTriangle,
   Award,
   Backpack,
-  BookOpenCheck,
-  Boxes,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -22,7 +20,6 @@ import {
   Glasses,
   GraduationCap,
   Hand,
-  Home,
   Lightbulb,
   Map,
   Microscope,
@@ -33,8 +30,6 @@ import {
   Settings,
   ShieldCheck,
   Target,
-  UserRound,
-  UsersRound,
   Volume2,
   Wrench,
   X,
@@ -68,11 +63,7 @@ type GameEvent = {
 };
 
 const nav = [
-  [Home, "Inicio"],
-  [Boxes, "Módulos"],
-  [Map, "Estaciones"],
   [Gamepad2, "Misión Laboral 3D"],
-  [BookOpenCheck, "Evaluación final"],
   [Award, "Mis logros"],
   [CircleGauge, "Mi progreso"],
 ] as const;
@@ -628,10 +619,6 @@ export default function HomePage() {
             </button>
           ))}
         </nav>
-        <div className="profile-switch">
-          <button type="button" className="profile active"><UserRound size={22} /><span>Estudiante</span></button>
-          <button type="button" className="profile"><UsersRound size={22} /><span>Docente</span></button>
-        </div>
       </aside>
 
       <section className="game-stage">
