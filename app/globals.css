@@ -184,12 +184,6 @@ kbd { display: inline-block; padding: 2px 5px; margin: 0 2px; color: #fff; backg
 .compact-dialog { width: min(500px, 100%); text-align: left; }
 .compact-dialog .item-icon, .decision-dialog .item-icon { margin: 0 auto 12px; }
 .compact-dialog > .dialog-eyebrow, .compact-dialog > h2, .compact-dialog > p, .decision-dialog { text-align: center; }
-.character-dialog { width: min(560px, 100%); }
-.dialogue-heading { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 12px; margin-bottom: 12px; }
-.dialogue-avatar { width: 58px; height: 58px; display: grid; place-items: center; color: #fff; background: #174f7f; border: 4px solid #d8edf7; border-radius: 50%; font-size: 20px; font-weight: 900; }
-.dialogue-heading span { color: #2b79ae; font-size: 10px; font-weight: 900; }
-.dialogue-heading h2 { margin: 3px 0 0; font-size: 22px; }
-.character-dialog blockquote { margin: 0 0 14px; padding: 13px 15px; color: #294f6c; background: #eef6fa; border-left: 4px solid #2c82b5; border-radius: 6px; font-size: 14px; line-height: 1.5; }
 .objective-sequence { margin: 16px 0 5px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; color: #1c6799; background: #e8f4fb; border-radius: 7px; font-size: 12px; font-weight: 800; }
 .help-actions .primary-action { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .stage-complete-dialog { width: min(500px, 100%); text-align: center; }
