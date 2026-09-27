@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Señal perdida | Misión Laboral 3D | Aula TP Chile",
+  title: "Compresión perdida | Misión Laboral 3D | Aula TP Chile",
   description:
-    "Misión Laboral 3D de Mecánica Automotriz para diagnosticar una falla del sistema de inyección electrónica.",
+    "Misión Laboral 3D de Mecánica Automotriz para diagnosticar y ajustar el estado mecánico de un motor.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

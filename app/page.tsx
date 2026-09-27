@@ -82,23 +82,23 @@ const items: Record<string, { name: string; kind: ItemKind; useful: boolean; des
     useful: true,
     description: "Permiten manipular conectores y elementos del motor con protección adecuada.",
   },
-  scanner: {
-    name: "Scanner OBD-II",
+  compression_gauge: {
+    name: "Compresímetro",
     kind: "tool",
     useful: true,
-    description: "Lee códigos de diagnóstico y datos del sistema de control electrónico.",
+    description: "Mide la presión de compresión de cada cilindro para evaluar el sellado del motor.",
   },
-  multimeter: {
-    name: "Multímetro digital",
+  feeler_gauge: {
+    name: "Juego de galgas",
     kind: "tool",
     useful: true,
-    description: "Permite medir la señal eléctrica de sensores y comprobar el circuito.",
+    description: "Permite comprobar la holgura entre los componentes del tren de válvulas.",
   },
-  hammer: {
-    name: "Martillo de goma",
+  torque_wrench: {
+    name: "Llave dinamométrica",
     kind: "tool",
     useful: false,
-    description: "Permite aplicar ajustes mecánicos suaves sin dañar superficies ni componentes cercanos.",
+    description: "Aplica un torque especificado; no reemplaza los instrumentos del diagnóstico inicial.",
   },
 };
 
@@ -107,15 +107,15 @@ const targetLabels: Record<string, string> = {
   vehicle: "Inspeccionar el vehículo",
   goggles: "Revisar lentes de seguridad",
   gloves: "Revisar guantes de protección",
-  scanner: "Revisar scanner OBD-II",
-  multimeter: "Revisar multímetro",
-  hammer: "Revisar martillo de goma",
+  compression_gauge: "Revisar compresímetro",
+  feeler_gauge: "Revisar juego de galgas",
+  torque_wrench: "Revisar llave dinamométrica",
   manual: "Consultar manual de servicio",
-  obd: "Conectar scanner OBD-II",
-  ckp_sensor: "Medir señal del sensor CKP",
-  fuel_pump: "Intervenir bomba de combustible",
-  ecu: "Intervenir unidad de control",
-  ckp_connector: "Intervenir conector CKP",
+  compression_test: "Medir compresión de cilindros",
+  valve_clearance: "Medir holgura de válvulas",
+  injectors: "Intervenir sistema de inyección",
+  head_gasket: "Desmontar culata",
+  valve_adjustment: "Ajustar holgura de válvulas",
   ignition: "Accionar el encendido",
 };
 
@@ -123,9 +123,9 @@ const objectives = [
   "Revisa la misión antes de comenzar.",
   "Habla con Mateo e inspecciona el vehículo.",
   "Equípate y selecciona los instrumentos pertinentes.",
-  "Reúne tres evidencias usando instrumentos y documentación.",
+  "Reúne tres evidencias mediante el manual y mediciones del motor.",
   "Interviene el componente coherente con las evidencias.",
-  "Arranca el vehículo y comprueba el resultado con el scanner.",
+  "Arranca el vehículo y comprueba nuevamente la compresión.",
 ];
 
 const stepNames = ["Preparado", "Comprende y explora", "Reconoce y prepárate", "Investiga y relaciona", "Decide y actúa", "Comprueba y llega a la meta"];
@@ -149,7 +149,7 @@ const stageGuides: Record<number, StageGuide> = {
     brief: "Dirígete a la zona de preparación e identifica el EPP y los instrumentos que necesitarás.",
     how: "Acércate a cada objeto, inspecciónalo y confirma si lo agregarás. Puedes devolver un instrumento desde el inventario.",
     why: "Seleccionar EPP y herramientas pertinentes evita riesgos y reduce intervenciones innecesarias.",
-    completed: "Elegiste el EPP y los instrumentos adecuados para un diagnóstico electrónico.",
+    completed: "Elegiste el EPP y los instrumentos adecuados para diagnosticar el estado del motor.",
     next: "Investigar y relacionar evidencias",
   },
   3: {
@@ -159,7 +159,7 @@ const stageGuides: Record<number, StageGuide> = {
     brief: "Reúne tres evidencias y relaciónalas: información del sistema, especificación técnica y medición real.",
     how: "Recorre el taller y utiliza la documentación y los instrumentos que preparaste. Tú eliges el orden.",
     why: "Una conclusión técnica válida debe comparar datos reales con especificaciones y códigos de diagnóstico.",
-    completed: "Relacionaste el DTC P0335, el rango esperado y una señal CKP fuera de rango.",
+    completed: "Relacionaste la especificación del fabricante con la compresión y la holgura medidas.",
     next: "Decidir e intervenir",
   },
   4: {
@@ -169,7 +169,7 @@ const stageGuides: Record<number, StageGuide> = {
     brief: "Analiza tus hallazgos y decide qué intervención está mejor justificada. Ya no se destacará una respuesta específica.",
     how: "Acércate a una ruta de intervención, selecciónala y confirma tu decisión antes de actuar.",
     why: "En el trabajo real, intervenir sin evidencia puede generar costos, riesgos y nuevas fallas.",
-    completed: "Interviniste el conector CKP porque la evidencia justificaba revisar su señal y continuidad.",
+    completed: "Ajustaste la holgura de válvulas porque las mediciones justificaban esa intervención.",
     next: "Comprobar el resultado",
   },
   5: {
@@ -179,7 +179,7 @@ const stageGuides: Record<number, StageGuide> = {
     brief: "Demuestra que la intervención resolvió la falla y verifica el sistema antes de cerrar la orden.",
     how: "Aplica el procedimiento aprendido. La ayuda sigue disponible, pero la secuencia debes decidirla tú.",
     why: "Una reparación solo se considera terminada cuando el resultado se comprueba con evidencia.",
-    completed: "Confirmaste el encendido estable y verificaste que el DTC no reapareciera.",
+    completed: "Confirmaste el funcionamiento estable y verificaste que la compresión se recuperara.",
     next: "Misión completada",
   },
 };
@@ -212,9 +212,9 @@ function synthSound(kind: "beep" | "warning" | "engine") {
 function mentorHint(level: number, step: number) {
   const hints: Record<number, string[]> = {
     1: ["", "Empieza por una fuente visible de información y luego busca la segunda.", "Distingue entre protección personal e instrumentos de diagnóstico.", "Piensa qué dato te falta para comparar condición esperada y condición real.", "Vuelve a leer las tres evidencias antes de elegir una intervención.", "Pregúntate qué dos comprobaciones demuestran que la falla fue resuelta."],
-    2: ["", "La condición del vehículo y el relato del técnico se complementan.", "Necesitas proteger ojos y manos, además de leer códigos y medir señales.", "Un diagnóstico sólido combina DTC, manual del fabricante y medición.", "Descarta las rutas que no explican una señal CKP de solo 0,08 V CA.", "Una comprobación funcional no reemplaza la verificación electrónica final."],
-    3: ["", "Acércate primero al vehículo y luego a Mateo; ambos están en la bahía.", "Revisa el panel de EPP y las herramientas que producen datos eléctricos.", "Revisa la oficina técnica, el puerto OBD-II y el punto de medición CKP.", "Intervén el trayecto de la señal antes de considerar reemplazar módulos.", "Comprueba primero el funcionamiento y después revisa si reaparece el DTC."],
-    4: ["", "Inspecciona el vehículo y conversa con Mateo para cerrar esta etapa.", "Equípate con lentes y guantes; lleva scanner OBD-II y multímetro.", "Obtén P0335, el rango 0,4–1,2 V CA y la medición de 0,08 V CA.", "La señal medida obliga a revisar la conexión CKP antes de intervenir otros sistemas.", "Acciona el encendido y vuelve al puerto OBD-II para cerrar la verificación."],
+    2: ["", "La condición del vehículo y el relato del técnico se complementan.", "Necesitas proteger ojos y manos, además de medir compresión y holguras.", "Un diagnóstico sólido compara dos mediciones con el manual del fabricante.", "Descarta las intervenciones que no expliquen simultáneamente la baja compresión y la holgura medida.", "Una prueba de funcionamiento no reemplaza la medición final."],
+    3: ["", "Acércate primero al vehículo y luego a Mateo; ambos están en la bahía.", "Revisa el panel de EPP y selecciona instrumentos propios del ajuste de motores.", "Consulta el manual y mide la compresión y la holgura de válvulas.", "Corrige la condición medida antes de desmontar conjuntos mayores.", "Comprueba primero el funcionamiento y después repite la medición de compresión."],
+    4: ["", "Inspecciona el vehículo y conversa con Mateo para cerrar esta etapa.", "Equípate con lentes y guantes; lleva compresímetro y juego de galgas.", "Obtén el valor mínimo de 10 bar, la compresión de 7,2 bar y una holgura de admisión de 0,05 mm.", "La holgura insuficiente puede impedir el cierre correcto de la válvula y reducir la compresión.", "Acciona el encendido y repite la prueba de compresión para cerrar la verificación."],
   };
   return hints[level]?.[step] || "Revisa el objetivo actual y las señales del entorno.";
 }
@@ -264,10 +264,10 @@ export default function HomePage() {
     const event: GameEvent = {
       action_id: actionId,
       modulo: "ME-MEAU-M05",
-      oa_ae: "OA 6 · AE 3",
-      criterio: actionId.includes("verify") ? "3.6" : "3.5",
+      oa_ae: "OA 4 · AE 1",
+      criterio: actionId.includes("verify") ? "1.5" : actionId.includes("manual") ? "1.1" : "1.4",
       habilidad: actionId,
-      concepto: "Diagnóstico del sistema de inyección y encendido electrónico",
+      concepto: "Diagnóstico y ajuste del motor según especificaciones del fabricante",
       evidencia: evidenceValue,
       resultado: result,
       nivel_ayuda: helpLevelRef.current,
@@ -334,7 +334,7 @@ export default function HomePage() {
     if (step === 4 && repaired && stageComplete !== 4) {
       setStageComplete(4);
       showMessage("Etapa completada", "La intervención coincide con la evidencia reunida.", "success");
-      record("step_4_complete", "logrado", "conector_ckp_asegurado");
+      record("step_4_complete", "logrado", "holgura_valvulas_ajustada");
     }
   }, [record, repaired, showMessage, stageComplete, step]);
 
@@ -358,12 +358,12 @@ export default function HomePage() {
 
   const applyDecision = useCallback((id: string) => {
     setPendingDecision(null);
-    if (id === "ckp_connector") {
+    if (id === "valve_adjustment") {
       setRepaired(true);
       markProgress();
-      showMessage("Decisión verificada", "La señal CKP fuera de rango justifica revisar y asegurar su conexión antes de reemplazar componentes.", "success");
+      showMessage("Decisión verificada", "La holgura de admisión insuficiente explica la pérdida de compresión. Ajustarla según el manual corrige la causa medida.", "success");
       synthSound("beep");
-      record("decision_ckp_connector", "intervencion_correcta", "terminal_reajustado");
+      record("decision_valve_adjustment", "intervencion_correcta", "holgura_ajustada_0_20_mm");
       return;
     }
 
@@ -371,10 +371,10 @@ export default function HomePage() {
     setDecisionAttempts(attempt);
     setMistakes((value) => value + 1);
     const feedback = attempt === 1
-      ? "Esta ruta no explica completamente la señal CKP medida. Revisa la relación entre código, rango esperado y valor real."
+      ? "Esta ruta no explica simultáneamente la compresión baja y la holgura medida. Compara ambos datos con el manual."
       : attempt === 2
-        ? "La presión de combustible y la unidad de control no tienen evidencia directa de falla. Concéntrate en el trayecto de la señal de posición."
-        : "Antes de reemplazar sistemas, revisa la conexión del sensor CKP: el DTC y los 0,08 V CA indican una señal ausente o degradada.";
+        ? "No existe evidencia que justifique desmontar la culata o intervenir los inyectores. Concéntrate en el componente que no cumple su holgura."
+        : "Antes de desmontar conjuntos mayores, ajusta la válvula de admisión del cilindro 4 a 0,20 mm según el manual.";
     setAnalysisPause(feedback);
     synthSound("warning");
     record(`decision_${id}`, "requiere_revision", `intento_${attempt}`);
@@ -386,14 +386,14 @@ export default function HomePage() {
       if (id === "npc") {
         setChecks((current) => ({ ...current, npc: true }));
         markProgress();
-        showMessage("Mateo · Técnico", "El motor se detuvo al bajar las revoluciones. Desde entonces gira, pero no enciende.", "info");
-        record("talk_npc", "informacion_obtenida", "falla_aparecio_en_marcha");
+        showMessage("Mateo · Técnico", "El motor perdió potencia, presenta ralentí inestable y le cuesta encender en frío.", "info");
+        record("talk_npc", "informacion_obtenida", "perdida_potencia_y_arranque_dificil");
       }
       if (id === "vehicle") {
         setChecks((current) => ({ ...current, vehicle: true }));
         markProgress();
-        showMessage("Inspección inicial", "No hay daños visibles. El arranque acciona y el indicador del motor permanece encendido.", "info");
-        record("inspect_vehicle", "informacion_obtenida", "motor_gira_no_enciende");
+        showMessage("Inspección inicial", "No hay fugas visibles. El motor enciende con dificultad y vibra en ralentí.", "info");
+        record("inspect_vehicle", "informacion_obtenida", "ralenti_inestable_sin_fugas");
       }
       return;
     }
@@ -404,16 +404,16 @@ export default function HomePage() {
     }
     if (stepRef.current === 3) {
       if (id === "manual") {
-        addEvidence("manual", "Evidencia 1 · Manual de servicio", "Para el CKP inductivo: señal esperada durante arranque entre 0,4 y 1,2 V CA.");
-      } else if (id === "obd") {
-        addEvidence("dtc", "Evidencia 2 · Scanner OBD-II", "DTC P0335 almacenado: circuito del sensor de posición del cigüeñal, señal ausente.");
-      } else if (id === "ckp_sensor") {
-        addEvidence("measurement", "Evidencia 3 · Medición", "Señal CKP durante arranque: 0,08 V CA. El valor está fuera del rango del fabricante.");
+        addEvidence("manual", "Evidencia 1 · Manual de servicio", "Compresión mínima: 10 bar. Holgura de admisión en frío: 0,20 ± 0,03 mm.");
+      } else if (id === "compression_test") {
+        addEvidence("compression", "Evidencia 2 · Prueba de compresión", "Cilindros 1–3: 10,7–10,9 bar. Cilindro 4: 7,2 bar, bajo el mínimo del fabricante.");
+      } else if (id === "valve_clearance") {
+        addEvidence("clearance", "Evidencia 3 · Medición de holgura", "Válvula de admisión del cilindro 4: 0,05 mm. La holgura es insuficiente.");
       }
       return;
     }
     if (stepRef.current === 4) {
-      if (["fuel_pump", "ecu", "ckp_connector"].includes(id)) setPendingDecision(id);
+      if (["injectors", "head_gasket", "valve_adjustment"].includes(id)) setPendingDecision(id);
       return;
     }
     if (stepRef.current === 5) {
@@ -423,12 +423,12 @@ export default function HomePage() {
         showMessage("El motor enciende", "La intervención produjo un cambio real. Falta comprobar que el código no reaparezca.", "success");
         synthSound("engine");
         record("engine_start", "motor_operativo", "encendido_estable");
-      } else if (id === "obd" && engineRunning) {
+      } else if (id === "compression_test" && engineRunning) {
         setCompleted(true);
         markProgress();
-        showMessage("Misión cumplida", "No hay códigos activos y la señal CKP es estable.", "success");
+        showMessage("Misión cumplida", "El cilindro 4 registra 10,8 bar y el motor mantiene un ralentí estable.", "success");
         synthSound("beep");
-        record("verify_final", "mision_cumplida", "sin_dtc_activos");
+        record("verify_final", "mision_cumplida", "compresion_10_8_bar_y_ralenti_estable");
       }
     }
   }, [addEvidence, engineRunning, markProgress, record, showMessage]);
@@ -579,16 +579,16 @@ export default function HomePage() {
 
   const missionStarted = step > 0;
   const evidenceLabels = [
-    ["dtc", "DTC P0335"],
-    ["manual", "Rango 0,4–1,2 V CA"],
-    ["measurement", "Medición 0,08 V CA"],
+    ["manual", "Especificaciones del fabricante"],
+    ["compression", "Compresión cilindro 4: 7,2 bar"],
+    ["clearance", "Holgura admisión: 0,05 mm"],
   ];
   const currentInstruction = useMemo(() => {
     if (step === 1) return checks.vehicle || checks.npc ? "Completa el reconocimiento con otra fuente de información." : "Dirígete a la bahía y reúne el contexto de la falla.";
     if (step === 2) return "Inspecciona los elementos y prepara el conjunto que consideres necesario.";
     if (step === 3) return evidence.length === 0 ? "Obtén una primera evidencia técnica." : evidence.length < 3 ? "Relaciona el hallazgo y busca otra evidencia." : "Compara las tres evidencias reunidas.";
     if (step === 4) return "Elige la intervención mejor respaldada por las evidencias.";
-    if (step === 5) return engineRunning ? "Verifica electrónicamente el resultado." : "Comprueba si el vehículo vuelve a encender.";
+    if (step === 5) return engineRunning ? "Repite la prueba de compresión y registra el resultado." : "Comprueba el funcionamiento del motor.";
     return objectives[0];
   }, [checks.npc, checks.vehicle, engineRunning, evidence.length, step]);
 
@@ -610,9 +610,9 @@ export default function HomePage() {
     ...epp,
     ...tools,
     evidence.includes("manual") ? "manual" : "",
-    evidence.includes("dtc") ? "obd" : "",
-    evidence.includes("measurement") ? "ckp_sensor" : "",
-    repaired ? "ckp_connector" : "",
+    evidence.includes("compression") ? "compression_test" : "",
+    evidence.includes("clearance") ? "valve_clearance" : "",
+    repaired ? "valve_adjustment" : "",
     engineRunning ? "ignition" : "",
   ].filter(Boolean), [checks.npc, checks.vehicle, engineRunning, epp, evidence, repaired, tools]);
   const preparationFilled = epp.length === 2 && tools.length === 2;
@@ -648,7 +648,7 @@ export default function HomePage() {
 
         <header className="module-strip">
           <div className="module-icon"><Settings size={25} /></div>
-          <div><span>MÓDULO 05</span><strong>Mantenimiento de sistemas eléctricos y electrónicos</strong></div>
+          <div><span>MÓDULO 01</span><strong>Ajuste de motores</strong></div>
           <div className="module-course">Mecánica Automotriz · 3° Medio TP</div>
         </header>
 
@@ -656,13 +656,13 @@ export default function HomePage() {
           <section className="mission-card" aria-labelledby="mission-title">
             <div className="mission-card-top">
               <div className="target-disc"><Target size={31} /></div>
-              <div><span>TU MISIÓN</span><h1 id="mission-title">Señal perdida</h1></div>
+              <div><span>TU MISIÓN</span><h1 id="mission-title">Compresión perdida</h1></div>
             </div>
-            <p>Eres parte del equipo técnico. El motor gira, pero no enciende: aplica lo aprendido para diagnosticar la causa y entregar el vehículo operativo y verificado.</p>
+            <p>Eres parte del equipo técnico. El motor perdió potencia y presenta un ralentí inestable: mide sus condiciones mecánicas, compara con el manual y realiza el ajuste justificado.</p>
             <div className="mission-meta">
               <span><Clock3 size={18} /> Tiempo orientativo: 10 minutos</span>
               <span><CircleGauge size={18} /> El tiempo orienta; no provoca fracaso</span>
-              <span><ShieldCheck size={18} /> OA 6 · AE 3 · Criterios 3.5 y 3.6</span>
+              <span><ShieldCheck size={18} /> OA 4 · AE 1 · Criterios 1.1, 1.4 y 1.5</span>
             </div>
             <div className="control-strip"><span><kbd>WASD</kbd> mover</span><span><kbd>E</kbd> interactuar</span><span><kbd>C</kbd> agacharse</span><span><kbd>ESC</kbd> pausa</span></div>
             <button className="start-button" type="button" onClick={startMission}>
@@ -741,7 +741,7 @@ export default function HomePage() {
         </section>
 
         <div className="status-ribbon">
-          <div><Target size={17} /><span>MISIÓN</span><strong>Restablecer el encendido</strong></div>
+          <div><Target size={17} /><span>MISIÓN</span><strong>Recuperar la compresión</strong></div>
           <div><Map size={17} /><span>PROGRESO</span><strong>{step}/5 · {step * 20}% · {stepNames[step]}</strong></div>
           <div><Microscope size={17} /><span>EVIDENCIAS</span><strong>{evidence.length}/3</strong></div>
           <div><Clock3 size={17} /><span>TIEMPO</span><strong>{formatTime(elapsed)}</strong></div>
@@ -769,7 +769,7 @@ export default function HomePage() {
             <section className="guide-dialog pause-dialog" role="dialog" aria-modal="true" aria-labelledby="pause-title">
               <div className="pause-icon"><Pause size={30} /></div>
               <span className="dialog-eyebrow">MISIÓN EN PAUSA</span>
-              <h2 id="pause-title">Señal perdida</h2>
+              <h2 id="pause-title">Compresión perdida</h2>
               <p>Tu avance permanece guardado. Continúa cuando estés listo para retomar el diagnóstico.</p>
               <button type="button" className="primary-action guide-start" onClick={() => setPaused(false)}><Play size={18} fill="currentColor" /> CONTINUAR MISIÓN</button>
               <button type="button" className="secondary-action pause-restart" onClick={restart}><RotateCcw size={17} /> REINICIAR MISIÓN</button>
@@ -783,7 +783,7 @@ export default function HomePage() {
               <button type="button" className="dialog-close" onClick={() => setObjectiveOpen(false)} aria-label="Cerrar"><X size={18} /></button>
               <div className="item-icon"><Target size={30} /></div>
               <span className="dialog-eyebrow">OBJETIVO DE LA MISIÓN</span>
-              <h2 id="objective-title">Restablecer el encendido</h2>
+              <h2 id="objective-title">Diagnosticar y ajustar el motor</h2>
               <p>Completa el diagnóstico en orden: comprende la falla, prepara una intervención segura, reúne evidencia, decide con fundamento y comprueba el resultado.</p>
               <div className="objective-sequence">Observar <ChevronRight size={14} /> Analizar <ChevronRight size={14} /> Actuar <ChevronRight size={14} /> Verificar</div>
               <button type="button" className="primary-action guide-start" onClick={() => setObjectiveOpen(false)}>VOLVER A LA MISIÓN</button>
@@ -863,7 +863,7 @@ export default function HomePage() {
               <span className="dialog-eyebrow">VERIFICA ANTES DE ACTUAR</span>
               <h2 id="decision-title">¿Confirmas esta intervención?</h2>
               <div className="selected-decision">{targetLabels[pendingDecision]}</div>
-              <p>Antes de confirmar, comprueba que esta decisión explique simultáneamente el DTC P0335, el rango esperado y la medición de 0,08 V CA.</p>
+              <p>Antes de confirmar, comprueba que esta decisión explique simultáneamente la compresión de 7,2 bar y la holgura de admisión de 0,05 mm.</p>
               <div className="dialog-actions">
                 <button type="button" className="secondary-action" onClick={() => setPendingDecision(null)}>Revisar evidencias</button>
                 <button type="button" className="primary-action" onClick={() => applyDecision(pendingDecision)}>Confirmar decisión</button>
@@ -903,9 +903,10 @@ export default function HomePage() {
               <div className="learning-summary">
                 <strong>Procedimiento realizado</strong>
                 <div className="completed-route">{routeLabels.map((label) => <span key={label}><Check size={12} />{label}</span>)}</div>
+                <p><b>Informe técnico:</b> baja compresión en el cilindro 4 asociada a holgura insuficiente en la válvula de admisión. Se ajustó a 0,20 mm y la compresión final alcanzó 10,8 bar.</p>
                 <p><b>Decisiones correctas:</b> reuniste evidencia antes de intervenir y verificaste el resultado.</p>
                 <p><b>Aspectos que necesitaste revisar:</b> {mistakes || hintsUsed ? `${mistakes} decisiones revisadas y ${hintsUsed} pistas solicitadas.` : "completaste el procedimiento sin correcciones ni pistas."}</p>
-                <p><b>Lo que aprendiste:</b> un DTC orienta, pero la decisión se fundamenta comparando manual, medición y condición real.</p>
+                <p><b>Lo que aprendiste:</b> el diagnóstico del motor se fundamenta comparando el manual, las mediciones de sus componentes y su condición real.</p>
               </div>
               <label className="reflection-field">¿Qué decisión consideras más importante durante el procedimiento y por qué?
                 <textarea value={reflection} onChange={(event) => setReflection(event.target.value)} placeholder="Escribe una reflexión breve..." />

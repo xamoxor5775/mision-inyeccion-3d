@@ -276,16 +276,22 @@ function makeToolModel(id: string) {
   } else if (id === "gloves") {
     box(group, [0.25, 0.1, 0.34], [-0.15, 0, 0], 0x1f8bb7);
     box(group, [0.25, 0.1, 0.34], [0.15, 0, 0.07], 0x1f8bb7);
-  } else if (id === "scanner") {
-    box(group, [0.48, 0.12, 0.68], [0, 0, 0], 0xc43b34, 0.45);
-    box(group, [0.34, 0.03, 0.32], [0, 0.075, -0.08], 0x8ed8ef, 0.18, 0.2);
-  } else if (id === "multimeter") {
-    box(group, [0.44, 0.13, 0.62], [0, 0, 0], 0xe5b735, 0.45);
-    box(group, [0.3, 0.025, 0.2], [0, 0.08, -0.13], 0x91cad3, 0.18);
-    cylinder(group, 0.09, 0.04, [0, 0.1, 0.13], 0x28333c, 14);
-  } else if (id === "hammer") {
-    box(group, [0.13, 0.13, 0.78], [0, 0, 0], 0xd5a16b);
-    box(group, [0.62, 0.22, 0.22], [0, 0, -0.37], 0x343c43, 0.38, 0.35);
+  } else if (id === "compression_gauge") {
+    const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.09, 24), material(0xdfe7e9, 0.25, 0.4));
+    dial.rotation.x = Math.PI / 2;
+    group.add(dial);
+    cylinder(group, 0.045, 0.75, [0, 0, 0.5], 0x24343e, 12);
+    cylinder(group, 0.08, 0.2, [0, 0, 0.92], 0xb88a39, 12);
+  } else if (id === "feeler_gauge") {
+    for (let i = 0; i < 7; i++) {
+      const blade = box(group, [0.07, 0.025, 0.72], [(i - 3) * 0.045, i * 0.015, 0], 0xc3ccd0, 0.22, 0.8);
+      blade.rotation.y = (i - 3) * 0.08;
+    }
+    cylinder(group, 0.09, 0.12, [0, 0.07, -0.32], 0x2f3e46, 14);
+  } else if (id === "torque_wrench") {
+    box(group, [0.12, 0.12, 0.9], [0, 0, 0], 0xb9c3c7, 0.25, 0.72);
+    cylinder(group, 0.12, 0.38, [0, 0, 0.48], 0x263944, 14);
+    box(group, [0.32, 0.22, 0.2], [0, 0, -0.5], 0x4b5c65, 0.3, 0.6);
   }
   group.rotation.x = -Math.PI / 2;
   group.scale.setScalar(1.2);
@@ -456,12 +462,12 @@ export default function WorkshopScene({
     const toolPositions: Record<string, [number, number, number]> = {
       goggles: [-12.15, 1.55, -1.85],
       gloves: [-10.65, 1.45, -1.85],
-      scanner: [-9.8, 1.42, -7.3],
-      multimeter: [-6.9, 1.42, -7.3],
-      hammer: [-8.35, 1.42, -7.3],
+      compression_gauge: [-9.8, 1.42, -7.3],
+      feeler_gauge: [-6.9, 1.42, -7.3],
+      torque_wrench: [-8.35, 1.42, -7.3],
     };
     for (const [id, position] of Object.entries(toolPositions)) {
-      const target = addTarget(targets, id, [position[0], 0, position[2]], [2], id === "scanner" ? "Scanner OBD-II" : id === "multimeter" ? "Multímetro" : id === "hammer" ? "Martillo" : id === "goggles" ? "Lentes" : "Guantes");
+      const target = addTarget(targets, id, [position[0], 0, position[2]], [2], id === "compression_gauge" ? "Compresímetro" : id === "feeler_gauge" ? "Juego de galgas" : id === "torque_wrench" ? "Llave dinamométrica" : id === "goggles" ? "Lentes" : "Guantes");
       const model = makeToolModel(id);
       model.position.set(0, position[1], 0);
       target.add(model);
@@ -472,23 +478,24 @@ export default function WorkshopScene({
     box(manualTarget, [0.85, 0.12, 0.65], [0, 1.33, 0], 0x1769ac, 0.5);
     box(manualTarget, [0.72, 0.02, 0.52], [0, 1.405, 0], 0xf4f6f2, 0.8);
     scene.add(manualTarget);
-    const obdTarget = addTarget(targets, "obd", [0.0, 0, 0.65], [3, 5], "Puerto OBD-II");
-    box(obdTarget, [0.32, 0.22, 0.16], [0, 0.82, 0], 0x26333d, 0.45);
-    scene.add(obdTarget);
-    const ckpTarget = addTarget(targets, "ckp_sensor", [6.35, 0, -0.25], [3], "Sensor CKP");
-    cylinder(ckpTarget, 0.16, 0.52, [0, 0.72, 0], 0x2b333a, 16).rotation.z = Math.PI / 2;
-    scene.add(ckpTarget);
+    const compressionTarget = addTarget(targets, "compression_test", [0.0, 0, 0.65], [3, 5], "Prueba de compresión");
+    cylinder(compressionTarget, 0.23, 0.1, [0, 0.92, 0], 0xd9e2e5, 20).rotation.x = Math.PI / 2;
+    cylinder(compressionTarget, 0.045, 0.62, [0, 0.55, 0], 0x26333d, 12);
+    scene.add(compressionTarget);
+    const clearanceTarget = addTarget(targets, "valve_clearance", [6.35, 0, -0.25], [3], "Holgura de válvulas");
+    for (let i = 0; i < 5; i++) box(clearanceTarget, [0.055, 0.025, 0.5], [(i - 2) * 0.05, 0.72 + i * 0.012, 0], 0xbcc6ca, 0.25, 0.75);
+    scene.add(clearanceTarget);
 
-    const fuelTarget = addTarget(targets, "fuel_pump", [0.15, 0, -3.95], [4], "Bomba de combustible", 0xec6e50);
-    cylinder(fuelTarget, 0.25, 0.55, [0, 0.68, 0], 0x4d606c, 18);
-    scene.add(fuelTarget);
-    const ecuTarget = addTarget(targets, "ecu", [5.7, 0, -3.65], [4], "Unidad de control", 0xec6e50);
-    box(ecuTarget, [0.78, 0.38, 0.54], [0, 0.72, 0], 0x88969d, 0.3, 0.55);
-    scene.add(ecuTarget);
-    const connectorTarget = addTarget(targets, "ckp_connector", [6.45, 0, 0.75], [4], "Conector CKP", 0x2cab6f);
-    box(connectorTarget, [0.42, 0.3, 0.34], [0, 0.75, 0], 0x2b333a, 0.45);
-    box(connectorTarget, [0.18, 0.18, 0.2], [0.28, 0.75, 0], 0x2cab6f, 0.45);
-    scene.add(connectorTarget);
+    const injectorsTarget = addTarget(targets, "injectors", [0.15, 0, -3.95], [4], "Intervenir inyectores", 0xec6e50);
+    for (let i = 0; i < 4; i++) cylinder(injectorsTarget, 0.07, 0.42, [-0.28 + i * 0.18, 0.75, 0], 0x4d606c, 12);
+    scene.add(injectorsTarget);
+    const gasketTarget = addTarget(targets, "head_gasket", [5.7, 0, -3.65], [4], "Desmontar culata", 0xec6e50);
+    box(gasketTarget, [0.9, 0.22, 0.62], [0, 0.76, 0], 0x88969d, 0.3, 0.55);
+    scene.add(gasketTarget);
+    const adjustmentTarget = addTarget(targets, "valve_adjustment", [6.45, 0, 0.75], [4], "Ajustar válvulas", 0x2cab6f);
+    box(adjustmentTarget, [0.65, 0.2, 0.42], [0, 0.75, 0], 0x394850, 0.45);
+    for (let i = 0; i < 4; i++) cylinder(adjustmentTarget, 0.05, 0.28, [-0.23 + i * 0.15, 0.94, 0], 0x2cab6f, 10);
+    scene.add(adjustmentTarget);
     const ignitionTarget = addTarget(targets, "ignition", [-0.05, 0, 1.75], [5], "Encendido");
     box(ignitionTarget, [0.25, 0.25, 0.25], [0, 0.9, 0], 0xe0a93f, 0.35, 0.35);
     scene.add(ignitionTarget);
@@ -636,7 +643,7 @@ export default function WorkshopScene({
       let nearest: Target | null = null;
       let nearestDistance = 1.65;
       for (const target of targets) {
-        const engineCondition = target.id !== "obd" || game.currentStep !== 5 || game.engineRunning;
+        const engineCondition = target.id !== "compression_test" || game.currentStep !== 5 || game.engineRunning;
         const available = target.steps.includes(game.currentStep) && engineCondition;
         target.root.visible = available;
         if (!available || !game.active) continue;
