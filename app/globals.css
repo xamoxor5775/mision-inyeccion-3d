@@ -166,6 +166,10 @@ kbd { display: inline-block; padding: 2px 5px; margin: 0 2px; color: #fff; backg
 .status-ribbon span { color: #68839b; font-size: 9px; font-weight: 900; }
 .status-ribbon strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .desktop-controls { position: absolute; z-index: 4; right: 18px; bottom: 91px; display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 6px; color: #eaf7fd; background: rgba(8,43,74,.68); font-size: 10px; backdrop-filter: blur(6px); }
+.pause-backdrop { z-index: 55; background: rgba(4,25,43,.72); }
+.pause-dialog { width: min(430px, 100%); text-align: center; }
+.pause-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 12px; color: #fff; background: #176ca3; border-radius: 50%; }
+.pause-restart { width: 100%; min-height: 44px; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 7px; font-weight: 800; cursor: pointer; }
 .modal-backdrop { position: absolute; z-index: 40; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(5,28,49,.58); backdrop-filter: blur(3px); }
 .pedagogical-backdrop { background: rgba(5,28,49,.66); }
 .guide-dialog { position: relative; width: min(535px, 100%); max-height: calc(100svh - 36px); overflow: auto; padding: 24px; color: var(--ink); background: #f8fcff; border: 2px solid #fff; border-radius: 12px; box-shadow: 0 24px 60px rgba(3,27,49,.42); }

@@ -24,6 +24,7 @@ import {
   Map,
   Microscope,
   MousePointer2,
+  Pause,
   Play,
   RotateCcw,
   ScanLine,
@@ -243,6 +244,7 @@ export default function HomePage() {
   const [decisionAttempts, setDecisionAttempts] = useState(0);
   const [preparationReviewOpen, setPreparationReviewOpen] = useState(false);
   const [analysisPause, setAnalysisPause] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
   const [navigation, setNavigation] = useState<{ label: string; distance: number; angle: number } | null>(null);
   const [pulse, setPulse] = useState(0);
   const [resetToken, setResetToken] = useState(0);
@@ -438,16 +440,25 @@ export default function HomePage() {
         setObjectiveOpen(true);
         return;
       }
+      if (step > 0 && !completed && event.code === "Escape") {
+        event.preventDefault();
+        if (paused) {
+          setPaused(false);
+        } else if (!inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause) {
+          setPaused(true);
+        }
+        return;
+      }
       if (step > 0 && !completed && event.code === "Slash" && event.shiftKey) {
         event.preventDefault();
         setHelpOpen(true);
         return;
       }
-      if (event.code === "KeyE" && !event.repeat && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause) handleInteract(nearby);
+      if (event.code === "KeyE" && !event.repeat && nearby && !paused && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause) handleInteract(nearby);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [analysisPause, briefingOpen, completed, handleInteract, helpOpen, inspection, nearby, objectiveOpen, pendingDecision, preparationReviewOpen, stageComplete, step]);
+  }, [analysisPause, briefingOpen, completed, handleInteract, helpOpen, inspection, nearby, objectiveOpen, paused, pendingDecision, preparationReviewOpen, stageComplete, step]);
 
   const chooseItem = (take: boolean) => {
     if (!inspection) return;
@@ -547,6 +558,7 @@ export default function HomePage() {
     setDecisionAttempts(0);
     setPreparationReviewOpen(false);
     setAnalysisPause(null);
+    setPaused(false);
     setNavigation(null);
     setReflection("");
     telemetryRef.current = [];
@@ -623,7 +635,7 @@ export default function HomePage() {
 
       <section className="game-stage">
         <WorkshopScene
-          active={missionStarted && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause}
+          active={missionStarted && !paused && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause}
           currentStep={step}
           helpLevel={helpLevel}
           engineRunning={engineRunning}
@@ -652,7 +664,7 @@ export default function HomePage() {
               <span><CircleGauge size={18} /> El tiempo orienta; no provoca fracaso</span>
               <span><ShieldCheck size={18} /> OA 6 · AE 3 · Criterios 3.5 y 3.6</span>
             </div>
-            <div className="control-strip"><span><kbd>WASD</kbd> mover</span><span><kbd>E</kbd> interactuar</span><span><kbd>TAB</kbd> objetivo</span><span><kbd>?</kbd> ayuda</span></div>
+            <div className="control-strip"><span><kbd>WASD</kbd> mover</span><span><kbd>E</kbd> interactuar</span><span><kbd>C</kbd> agacharse</span><span><kbd>ESC</kbd> pausa</span></div>
             <button className="start-button" type="button" onClick={startMission}>
               <Play size={22} fill="currentColor" /> INICIAR MISIÓN <ChevronRight size={24} />
             </button>
@@ -709,7 +721,7 @@ export default function HomePage() {
           </section>
         )}
 
-        {missionStarted && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && (
+        {missionStarted && nearby && !paused && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && (
           <button type="button" className="interaction-prompt" onClick={() => handleInteract(nearby)}>
             <kbd>E</kbd><span>{targetLabels[nearby]}</span>
           </button>
@@ -748,6 +760,19 @@ export default function HomePage() {
                 markProgress();
                 record(`step_${step}_instruction_acknowledged`, "comprendida", stageGuides[step].mode);
               }}>{step <= 2 ? "ENTENDIDO, COMENZAR" : "COMENZAR ETAPA"}<ChevronRight size={19} /></button>
+            </section>
+          </div>
+        )}
+
+        {paused && (
+          <div className="modal-backdrop pause-backdrop">
+            <section className="guide-dialog pause-dialog" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+              <div className="pause-icon"><Pause size={30} /></div>
+              <span className="dialog-eyebrow">MISIÓN EN PAUSA</span>
+              <h2 id="pause-title">Señal perdida</h2>
+              <p>Tu avance permanece guardado. Continúa cuando estés listo para retomar el diagnóstico.</p>
+              <button type="button" className="primary-action guide-start" onClick={() => setPaused(false)}><Play size={18} fill="currentColor" /> CONTINUAR MISIÓN</button>
+              <button type="button" className="secondary-action pause-restart" onClick={restart}><RotateCcw size={17} /> REINICIAR MISIÓN</button>
             </section>
           </div>
         )}
@@ -904,7 +929,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {missionStarted && <div className="desktop-controls"><Footprints size={15} /> WASD mover · Shift caminar rápido · arrastrar para mirar · E interactuar <MousePointer2 size={15} /></div>}
+        {missionStarted && step <= 2 && <div className="desktop-controls"><Footprints size={15} /> WASD mover · Shift rápido · C/Ctrl agacharse · arrastrar para mirar · E interactuar · Esc pausa <MousePointer2 size={15} /></div>}
       </section>
     </main>
   );

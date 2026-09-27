@@ -439,6 +439,7 @@ export default function WorkshopScene({
 
     const clock = new THREE.Clock();
     const direction = new THREE.Vector3();
+    const velocity = new THREE.Vector3();
     const forward = new THREE.Vector3();
     const right = new THREE.Vector3();
     const cameraTarget = new THREE.Vector3();
@@ -474,14 +475,26 @@ export default function WorkshopScene({
           moving = true;
           direction.normalize();
           const speed = keys.has("ShiftLeft") || keys.has("ShiftRight") ? 5.3 : 3.15;
-          const nextX = THREE.MathUtils.clamp(avatar.position.x + direction.x * speed * dt, -15.4, 15.4);
-          const nextZ = THREE.MathUtils.clamp(avatar.position.z + direction.z * speed * dt, -9.25, 11.2);
-          if (!collides(nextX, avatar.position.z)) avatar.position.x = nextX;
-          if (!collides(avatar.position.x, nextZ)) avatar.position.z = nextZ;
-          avatar.rotation.y = Math.atan2(direction.x, direction.z);
+          const responsiveness = keys.has("ShiftLeft") || keys.has("ShiftRight") ? 7.2 : 9.5;
+          velocity.lerp(direction.multiplyScalar(speed), 1 - Math.exp(-responsiveness * dt));
+        } else {
+          velocity.multiplyScalar(Math.exp(-11 * dt));
         }
+      } else {
+        velocity.multiplyScalar(Math.exp(-14 * dt));
       }
-      const crouching = keys.has("KeyC");
+      if (velocity.lengthSq() > 0.0025) {
+        moving = true;
+        const nextX = THREE.MathUtils.clamp(avatar.position.x + velocity.x * dt, -15.4, 15.4);
+        const nextZ = THREE.MathUtils.clamp(avatar.position.z + velocity.z * dt, -9.25, 11.2);
+        if (!collides(nextX, avatar.position.z)) avatar.position.x = nextX;
+        else velocity.x = 0;
+        if (!collides(avatar.position.x, nextZ)) avatar.position.z = nextZ;
+        else velocity.z = 0;
+        const targetRotation = Math.atan2(velocity.x, velocity.z);
+        avatar.rotation.y += Math.atan2(Math.sin(targetRotation - avatar.rotation.y), Math.cos(targetRotation - avatar.rotation.y)) * Math.min(1, dt * 10);
+      }
+      const crouching = keys.has("KeyC") || keys.has("ControlLeft") || keys.has("ControlRight");
       avatar.scale.y = THREE.MathUtils.lerp(avatar.scale.y, crouching ? 0.72 : 1, 1 - Math.pow(0.005, dt));
       const stride = moving ? Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9)) * 0.58 : Math.sin(time * 2) * 0.025;
       arms[0].rotation.x = stride;
@@ -493,7 +506,7 @@ export default function WorkshopScene({
       npcArm.rotation.z = -0.3 + Math.sin(time * 1.7) * 0.09;
 
       let nearest: Target | null = null;
-      let nearestDistance = 2.25;
+      let nearestDistance = 1.65;
       for (const target of targets) {
         const engineCondition = target.id !== "obd" || game.currentStep !== 5 || game.engineRunning;
         const available = target.steps.includes(game.currentStep) && engineCondition;
@@ -503,19 +516,15 @@ export default function WorkshopScene({
         const targetLabel = target.root.children.find((child) => child.userData.label);
         const guided = game.currentStep <= 2;
         const supported = game.currentStep === 3;
-        target.marker.visible = guided || distance < (supported ? 5.2 : 3.2) || game.helpLevel >= (supported ? 2 : 3);
+        target.marker.visible = distance < 3 || game.helpLevel >= (guided ? 2 : supported ? 3 : 4);
         if (targetLabel) {
-          targetLabel.visible = guided
-            ? distance < 6.5 || game.helpLevel >= 1
-            : supported
-              ? distance < 4.2 || game.helpLevel >= 3
-              : distance < 2.8 || game.helpLevel >= 4;
+          targetLabel.visible = distance < 1.9 || game.helpLevel >= (guided ? 3 : supported ? 4 : 5);
         }
         if (distance < nearestDistance) {
           nearest = target;
           nearestDistance = distance;
         }
-        const basePulse = guided ? 0.1 : supported ? 0.055 : 0.025;
+        const basePulse = guided ? 0.07 : supported ? 0.045 : 0.025;
         const pulse = 1 + Math.sin(time * 4.5) * basePulse + (game.helpLevel >= 3 ? 0.16 : 0);
         target.marker.scale.setScalar(pulse);
         const markerMaterial = target.marker.material as THREE.MeshBasicMaterial;
@@ -578,6 +587,14 @@ export default function WorkshopScene({
       );
       desired.x = THREE.MathUtils.clamp(desired.x, -16.2, 16.2);
       desired.z = THREE.MathUtils.clamp(desired.z, -9.8, 11.8);
+      if (collides(desired.x, desired.z)) {
+        const safeDistance = closeFocus ? 2.8 : 4.1;
+        desired.set(
+          avatar.position.x + Math.sin(orbitYaw) * safeDistance,
+          cameraHeight + orbitPitch * 3,
+          avatar.position.z + Math.cos(orbitYaw) * safeDistance,
+        );
+      }
       const targetLead = closeFocus ? 0.75 : 2.05;
       cameraTarget.set(
         avatar.position.x - Math.sin(orbitYaw) * targetLead,
