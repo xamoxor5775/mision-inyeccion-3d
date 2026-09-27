@@ -238,6 +238,7 @@ export default function HomePage() {
   const [stageComplete, setStageComplete] = useState<number | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
+  const [mateoGuidanceOpen, setMateoGuidanceOpen] = useState(false);
   const [visibleHint, setVisibleHint] = useState<string | null>(null);
   const [pendingDecision, setPendingDecision] = useState<string | null>(null);
   const [decisionAttempts, setDecisionAttempts] = useState(0);
@@ -313,12 +314,12 @@ export default function HomePage() {
   }, [completed, record, showMessage, step]);
 
   useEffect(() => {
-    if (step === 1 && checks.npc && checks.vehicle && stageComplete !== 1) {
+    if (step === 1 && checks.npc && checks.vehicle && !mateoGuidanceOpen && stageComplete !== 1) {
       setStageComplete(1);
       showMessage("Etapa completada", "Comprendiste la situación antes de intervenir.", "success");
       record("step_1_complete", "logrado", "contexto_completo");
     }
-  }, [checks, record, showMessage, stageComplete, step]);
+  }, [checks, mateoGuidanceOpen, record, showMessage, stageComplete, step]);
 
   useEffect(() => {
     if (step === 3 && evidence.length === 3 && stageComplete !== 3) {
@@ -383,8 +384,8 @@ export default function HomePage() {
     if (stepRef.current === 1) {
       if (id === "npc") {
         setChecks((current) => ({ ...current, npc: true }));
+        setMateoGuidanceOpen(true);
         markProgress();
-        showMessage("Mateo · Técnico", "El motor se detuvo al bajar las revoluciones. Desde entonces gira, pero no enciende.", "info");
         record("talk_npc", "informacion_obtenida", "falla_aparecio_en_marcha");
       }
       if (id === "vehicle") {
@@ -443,11 +444,11 @@ export default function HomePage() {
         setHelpOpen(true);
         return;
       }
-      if (event.code === "KeyE" && !event.repeat && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause) handleInteract(nearby);
+      if (event.code === "KeyE" && !event.repeat && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !mateoGuidanceOpen && !pendingDecision && !preparationReviewOpen && !analysisPause) handleInteract(nearby);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [analysisPause, briefingOpen, completed, handleInteract, helpOpen, inspection, nearby, objectiveOpen, pendingDecision, preparationReviewOpen, stageComplete, step]);
+  }, [analysisPause, briefingOpen, completed, handleInteract, helpOpen, inspection, mateoGuidanceOpen, nearby, objectiveOpen, pendingDecision, preparationReviewOpen, stageComplete, step]);
 
   const chooseItem = (take: boolean) => {
     if (!inspection) return;
@@ -542,6 +543,7 @@ export default function HomePage() {
     setStageComplete(null);
     setHelpOpen(false);
     setObjectiveOpen(false);
+    setMateoGuidanceOpen(false);
     setVisibleHint(null);
     setPendingDecision(null);
     setDecisionAttempts(0);
@@ -572,7 +574,12 @@ export default function HomePage() {
     ["measurement", "Medición 0,08 V CA"],
   ];
   const currentInstruction = useMemo(() => {
-    if (step === 1) return checks.vehicle || checks.npc ? "Completa el reconocimiento con otra fuente de información." : "Dirígete a la bahía y reúne el contexto de la falla.";
+    if (step === 1) {
+      if (checks.npc && !checks.vehicle) return "Inspecciona ahora el vehículo: confirma si el motor gira y observa el testigo de avería.";
+      if (checks.vehicle && !checks.npc) return "Habla con Mateo y contrasta su relato con lo que observaste en el vehículo.";
+      if (checks.npc && checks.vehicle) return "Relaciona el relato de Mateo con la inspección antes de avanzar.";
+      return "Habla con Mateo para conocer cuándo y cómo apareció la falla.";
+    }
     if (step === 2) return "Inspecciona los elementos y prepara el conjunto que consideres necesario.";
     if (step === 3) return evidence.length === 0 ? "Obtén una primera evidencia técnica." : evidence.length < 3 ? "Relaciona el hallazgo y busca otra evidencia." : "Compara las tres evidencias reunidas.";
     if (step === 4) return "Elige la intervención mejor respaldada por las evidencias.";
@@ -581,11 +588,29 @@ export default function HomePage() {
   }, [checks.npc, checks.vehicle, engineRunning, evidence.length, step]);
 
   const currentHow = useMemo(() => {
-    if (step <= 2) return stageGuides[step]?.how || "Sigue la indicación visible.";
+    if (step === 1) {
+      if (checks.npc && !checks.vehicle) return "Sigue el indicador hasta el vehículo, acércate y presiona E para inspeccionarlo.";
+      if (checks.vehicle && !checks.npc) return "Sigue el indicador hasta Mateo, acércate y presiona E para conversar.";
+      if (checks.npc && checks.vehicle) return "Identifica las coincidencias entre ambas fuentes: cuándo ocurrió, qué hace el motor y qué señal permanece activa.";
+      return "Sigue el indicador hasta Mateo, acércate y presiona E para conversar.";
+    }
+    if (step === 2) return stageGuides[step].how;
     if (step === 3) return "Recorre el taller y utiliza los recursos preparados. Tú decides el orden.";
     if (step === 4) return "Acércate a una ruta, selecciónala y confirma tu decisión.";
     return "Aplica la secuencia aprendida y usa Ayuda solo si la necesitas.";
-  }, [step]);
+  }, [checks.npc, checks.vehicle, step]);
+
+  const mateoGuidance = checks.vehicle
+    ? {
+        action: "Contrasta el relato con la inspección que ya realizaste e identifica las coincidencias entre ambas fuentes.",
+        purpose: "Relacionar el relato y la condición observada permite cerrar el contexto de la falla antes de seleccionar instrumentos.",
+        button: "RELACIONAR Y CERRAR ETAPA",
+      }
+    : {
+        action: "Inspecciona ahora el vehículo. Confirma si el motor gira y observa qué indicador permanece encendido.",
+        purpose: "Debes comprobar si la condición observable coincide con el relato antes de comenzar el diagnóstico técnico.",
+        button: "IR A INSPECCIONAR EL VEHÍCULO",
+      };
 
   const mentorCopy = step <= 2
     ? ["Te oriento en el recorrido", "Siempre sabrás dónde ir y cómo interactuar; la selección técnica es tuya."]
@@ -623,7 +648,7 @@ export default function HomePage() {
 
       <section className="game-stage">
         <WorkshopScene
-          active={missionStarted && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause}
+          active={missionStarted && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !mateoGuidanceOpen && !pendingDecision && !preparationReviewOpen && !analysisPause}
           currentStep={step}
           helpLevel={helpLevel}
           engineRunning={engineRunning}
@@ -709,7 +734,7 @@ export default function HomePage() {
           </section>
         )}
 
-        {missionStarted && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && (
+        {missionStarted && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !mateoGuidanceOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && (
           <button type="button" className="interaction-prompt" onClick={() => handleInteract(nearby)}>
             <kbd>E</kbd><span>{targetLabels[nearby]}</span>
           </button>
@@ -762,6 +787,26 @@ export default function HomePage() {
               <p>Completa el diagnóstico en orden: comprende la falla, prepara una intervención segura, reúne evidencia, decide con fundamento y comprueba el resultado.</p>
               <div className="objective-sequence">Observar <ChevronRight size={14} /> Analizar <ChevronRight size={14} /> Actuar <ChevronRight size={14} /> Verificar</div>
               <button type="button" className="primary-action guide-start" onClick={() => setObjectiveOpen(false)}>VOLVER A LA MISIÓN</button>
+            </section>
+          </div>
+        )}
+
+        {mateoGuidanceOpen && (
+          <div className="modal-backdrop pedagogical-backdrop">
+            <section className="guide-dialog character-dialog" role="dialog" aria-modal="true" aria-labelledby="mateo-guidance-title">
+              <div className="dialogue-heading">
+                <div className="dialogue-avatar">M</div>
+                <div><span>CONVERSACIÓN CON EL TÉCNICO</span><h2 id="mateo-guidance-title">Mateo aporta una pista clave</h2></div>
+              </div>
+              <blockquote>“El motor se detuvo al bajar las revoluciones. Desde entonces gira, pero no enciende.”</blockquote>
+              <div className="guide-block success-block"><span>QUÉ ACABAS DE DESCUBRIR</span><p>La falla apareció con el motor en marcha y ahora existe giro de arranque sin encendido.</p></div>
+              <div className="guide-block attention"><span>QUÉ DEBES HACER AHORA</span><p>{mateoGuidance.action}</p></div>
+              <p className="guide-why"><strong>¿Para qué?</strong> {mateoGuidance.purpose}</p>
+              <button type="button" className="primary-action guide-start" onClick={() => {
+                setMateoGuidanceOpen(false);
+                markProgress();
+                record("mateo_guidance_acknowledged", "accion_comprendida", checks.vehicle ? "relacionar_fuentes" : "inspeccionar_vehiculo");
+              }}>{mateoGuidance.button}<ChevronRight size={19} /></button>
             </section>
           </div>
         )}
