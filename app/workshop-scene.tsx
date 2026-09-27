@@ -471,20 +471,30 @@ export default function WorkshopScene({
       let nearestDistance = 2.25;
       for (const target of targets) {
         const engineCondition = target.id !== "obd" || game.currentStep !== 5 || game.engineRunning;
-        const visible = target.steps.includes(game.currentStep) && engineCondition;
-        target.root.visible = visible;
-        if (!visible || !game.active) continue;
+        const available = target.steps.includes(game.currentStep) && engineCondition;
+        target.root.visible = available;
+        if (!available || !game.active) continue;
         const distance = Math.hypot(avatar.position.x - target.root.position.x, avatar.position.z - target.root.position.z);
         const targetLabel = target.root.children.find((child) => child.userData.label);
-        if (targetLabel) targetLabel.visible = distance < 4.6 || game.helpLevel >= 3;
+        const guided = game.currentStep <= 2;
+        const supported = game.currentStep === 3;
+        target.marker.visible = guided || distance < (supported ? 5.2 : 3.2) || game.helpLevel >= (supported ? 2 : 3);
+        if (targetLabel) {
+          targetLabel.visible = guided
+            ? distance < 6.5 || game.helpLevel >= 1
+            : supported
+              ? distance < 4.2 || game.helpLevel >= 3
+              : distance < 2.8 || game.helpLevel >= 4;
+        }
         if (distance < nearestDistance) {
           nearest = target;
           nearestDistance = distance;
         }
-        const pulse = 1 + Math.sin(time * 4.5) * 0.08 + (game.helpLevel >= 3 ? 0.2 : 0);
+        const basePulse = guided ? 0.1 : supported ? 0.055 : 0.025;
+        const pulse = 1 + Math.sin(time * 4.5) * basePulse + (game.helpLevel >= 3 ? 0.16 : 0);
         target.marker.scale.setScalar(pulse);
         const markerMaterial = target.marker.material as THREE.MeshBasicMaterial;
-        markerMaterial.opacity = game.helpLevel >= 3 ? 0.98 : 0.68;
+        markerMaterial.opacity = game.helpLevel >= 3 ? 0.96 : guided ? 0.78 : supported ? 0.56 : 0.38;
       }
       const nearbyId = nearest?.id ?? null;
       if (nearbyId !== lastNearby) {
