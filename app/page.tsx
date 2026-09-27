@@ -46,6 +46,7 @@ type Tone = "info" | "success" | "warning";
 type ItemKind = "epp" | "tool";
 type StageGuide = {
   mode: string;
+  time: string;
   title: string;
   brief: string;
   how: string;
@@ -105,7 +106,7 @@ const items: Record<string, { name: string; kind: ItemKind; useful: boolean; des
     name: "Martillo de goma",
     kind: "tool",
     useful: false,
-    description: "Sirve para ajustes mecánicos suaves, pero no entrega información para este diagnóstico electrónico.",
+    description: "Permite aplicar ajustes mecánicos suaves sin dañar superficies ni componentes cercanos.",
   },
 };
 
@@ -141,8 +142,9 @@ const routeLabels = ["Contexto", "Equipo", "Evidencias", "Intervención", "Compr
 const stageGuides: Record<number, StageGuide> = {
   1: {
     mode: "PRÁCTICA GUIADA",
+    time: "0:00–1:30",
     title: "Comprende la situación",
-    brief: "Primero inspecciona el vehículo. Después conversa con Mateo para completar el contexto de la falla.",
+    brief: "Dirígete a la bahía de diagnóstico y reúne información inicial antes de intervenir.",
     how: "Camina con WASD o los controles táctiles. Al acercarte, presiona E o el botón Interactuar.",
     why: "Un diagnóstico seguro comienza reuniendo información antes de utilizar instrumentos.",
     completed: "Inspeccionaste el vehículo y obtuviste el relato técnico de la falla.",
@@ -150,8 +152,9 @@ const stageGuides: Record<number, StageGuide> = {
   },
   2: {
     mode: "PRÁCTICA GUIADA",
+    time: "1:30–3:00",
     title: "Prepara tu intervención",
-    brief: "Equípate con la protección necesaria y elige dos instrumentos capaces de producir evidencia electrónica.",
+    brief: "Dirígete a la zona de preparación e identifica el EPP y los instrumentos que necesitarás.",
     how: "Acércate a cada objeto, inspecciónalo y confirma si lo agregarás. Puedes devolver un instrumento desde el inventario.",
     why: "Seleccionar EPP y herramientas pertinentes evita riesgos y reduce intervenciones innecesarias.",
     completed: "Elegiste el EPP y los instrumentos adecuados para un diagnóstico electrónico.",
@@ -159,6 +162,7 @@ const stageGuides: Record<number, StageGuide> = {
   },
   3: {
     mode: "PRÁCTICA CON APOYO",
+    time: "3:00–6:00",
     title: "Construye el diagnóstico",
     brief: "Reúne tres evidencias y relaciónalas: información del sistema, especificación técnica y medición real.",
     how: "Recorre el taller y utiliza la documentación y los instrumentos que preparaste. Tú eliges el orden.",
@@ -168,6 +172,7 @@ const stageGuides: Record<number, StageGuide> = {
   },
   4: {
     mode: "PRÁCTICA AUTÓNOMA",
+    time: "6:00–8:30",
     title: "Decide con evidencia",
     brief: "Analiza tus hallazgos y decide qué intervención está mejor justificada. Ya no se destacará una respuesta específica.",
     how: "Acércate a una ruta de intervención, selecciónala y confirma tu decisión antes de actuar.",
@@ -177,6 +182,7 @@ const stageGuides: Record<number, StageGuide> = {
   },
   5: {
     mode: "PRÁCTICA AUTÓNOMA",
+    time: "8:30–10:00",
     title: "Comprueba y cierra",
     brief: "Demuestra que la intervención resolvió la falla y verifica el sistema antes de cerrar la orden.",
     how: "Aplica el procedimiento aprendido. La ayuda sigue disponible, pero la secuencia debes decidirla tú.",
@@ -244,6 +250,9 @@ export default function HomePage() {
   const [visibleHint, setVisibleHint] = useState<string | null>(null);
   const [pendingDecision, setPendingDecision] = useState<string | null>(null);
   const [decisionAttempts, setDecisionAttempts] = useState(0);
+  const [preparationReviewOpen, setPreparationReviewOpen] = useState(false);
+  const [analysisPause, setAnalysisPause] = useState<string | null>(null);
+  const [navigation, setNavigation] = useState<{ label: string; distance: number; angle: number } | null>(null);
   const [pulse, setPulse] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const [reflection, setReflection] = useState("");
@@ -321,15 +330,6 @@ export default function HomePage() {
   }, [checks, record, showMessage, stageComplete, step]);
 
   useEffect(() => {
-    const ready = ["goggles", "gloves"].every((id) => epp.includes(id)) && ["scanner", "multimeter"].every((id) => tools.includes(id));
-    if (step === 2 && ready && stageComplete !== 2) {
-      setStageComplete(2);
-      showMessage("Etapa completada", "Preparaste una intervención segura y pertinente.", "success");
-      record("step_2_complete", "logrado", "epp_y_equipo_pertinente");
-    }
-  }, [epp, record, showMessage, stageComplete, step, tools]);
-
-  useEffect(() => {
     if (step === 3 && evidence.length === 3 && stageComplete !== 3) {
       setStageComplete(3);
       showMessage("Etapa completada", "Ya puedes justificar una decisión técnica con evidencia.", "success");
@@ -382,7 +382,7 @@ export default function HomePage() {
       : attempt === 2
         ? "La presión de combustible y la unidad de control no tienen evidencia directa de falla. Concéntrate en el trayecto de la señal de posición."
         : "Antes de reemplazar sistemas, revisa la conexión del sensor CKP: el DTC y los 0,08 V CA indican una señal ausente o degradada.";
-    showMessage(attempt === 1 ? "Revisa tu decisión" : attempt === 2 ? "Pista más específica" : "Explicación técnica", feedback, "warning");
+    setAnalysisPause(feedback);
     synthSound("warning");
     record(`decision_${id}`, "requiere_revision", `intento_${attempt}`);
   }, [decisionAttempts, markProgress, record, showMessage]);
@@ -442,11 +442,21 @@ export default function HomePage() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.code === "KeyE" && !event.repeat && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision) handleInteract(nearby);
+      if (step > 0 && !completed && event.code === "Tab") {
+        event.preventDefault();
+        setObjectiveOpen(true);
+        return;
+      }
+      if (step > 0 && !completed && event.code === "Slash" && event.shiftKey) {
+        event.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
+      if (event.code === "KeyE" && !event.repeat && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause) handleInteract(nearby);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [briefingOpen, completed, handleInteract, helpOpen, inspection, nearby, objectiveOpen, pendingDecision, stageComplete]);
+  }, [analysisPause, briefingOpen, completed, handleInteract, helpOpen, inspection, nearby, objectiveOpen, pendingDecision, preparationReviewOpen, stageComplete, step]);
 
   const chooseItem = (take: boolean) => {
     if (!inspection) return;
@@ -463,11 +473,7 @@ export default function HomePage() {
         return;
       } else {
         setTools((current) => [...current, inspection]);
-        showMessage(item.useful ? "Instrumento agregado" : "Espacio ocupado", item.useful ? `${item.name} disponible en tu inventario.` : "Puedes llevarlo, pero no aporta evidencia para este diagnóstico.", item.useful ? "success" : "warning");
-        if (!item.useful) {
-          setMistakes((value) => value + 1);
-          record(`select_${inspection}`, "seleccion_no_pertinente", item.name);
-        }
+        showMessage("Instrumento seleccionado", `${item.name} quedó en tu inventario. Revisa el conjunto antes de confirmar la preparación.`, "info");
       }
       markProgress();
       synthSound("beep");
@@ -484,6 +490,22 @@ export default function HomePage() {
     setTools((current) => current.filter((tool) => tool !== id));
     showMessage("Instrumento devuelto", `${items[id].name} volvió a la zona de herramientas.`, "info");
     record(`drop_${id}`, "descartado", items[id].name);
+  };
+
+  const confirmPreparation = () => {
+    const safe = ["goggles", "gloves"].every((id) => epp.includes(id));
+    const diagnosticSet = tools.length === 2 && tools.every((id) => items[id].useful);
+    setPreparationReviewOpen(false);
+    if (safe && diagnosticSet) {
+      setStageComplete(2);
+      markProgress();
+      showMessage("Preparación verificada", "El conjunto permite protegerte, leer el sistema y medir señales.", "success");
+      record("step_2_complete", "logrado", "seleccion_confirmada");
+      return;
+    }
+    setMistakes((value) => value + 1);
+    setAnalysisPause("La selección aún no permite obtener toda la evidencia necesaria. Revisa qué funciones técnicas debes cubrir antes de continuar.");
+    record("step_2_review", "requiere_revision", tools.join(","));
   };
 
   const requestHint = () => {
@@ -532,6 +554,9 @@ export default function HomePage() {
     setVisibleHint(null);
     setPendingDecision(null);
     setDecisionAttempts(0);
+    setPreparationReviewOpen(false);
+    setAnalysisPause(null);
+    setNavigation(null);
     setReflection("");
     telemetryRef.current = [];
     setResetToken((value) => value + 1);
@@ -556,19 +581,13 @@ export default function HomePage() {
     ["measurement", "Medición 0,08 V CA"],
   ];
   const currentInstruction = useMemo(() => {
-    if (step === 1) return !checks.vehicle ? "Inspecciona primero el vehículo." : !checks.npc ? "Ahora conversa con Mateo." : "Revisa lo aprendido antes de continuar.";
-    if (step === 2) {
-      if (!epp.includes("goggles")) return "Equipa tus lentes de seguridad.";
-      if (!epp.includes("gloves")) return "Equipa tus guantes de protección.";
-      if (!tools.includes("scanner")) return "Selecciona un instrumento para leer el sistema electrónico.";
-      if (!tools.includes("multimeter")) return "Selecciona un instrumento para medir la señal.";
-      return "Comprueba que tu equipo esté completo.";
-    }
+    if (step === 1) return checks.vehicle || checks.npc ? "Completa el reconocimiento con otra fuente de información." : "Dirígete a la bahía y reúne el contexto de la falla.";
+    if (step === 2) return "Inspecciona los elementos y prepara el conjunto que consideres necesario.";
     if (step === 3) return evidence.length === 0 ? "Obtén una primera evidencia técnica." : evidence.length < 3 ? "Relaciona el hallazgo y busca otra evidencia." : "Compara las tres evidencias reunidas.";
     if (step === 4) return "Elige la intervención mejor respaldada por las evidencias.";
     if (step === 5) return engineRunning ? "Verifica electrónicamente el resultado." : "Comprueba si el vehículo vuelve a encender.";
     return objectives[0];
-  }, [checks.npc, checks.vehicle, engineRunning, epp, evidence.length, step, tools]);
+  }, [checks.npc, checks.vehicle, engineRunning, evidence.length, step]);
 
   const currentHow = useMemo(() => {
     if (step <= 2) return stageGuides[step]?.how || "Sigue la indicación visible.";
@@ -578,10 +597,22 @@ export default function HomePage() {
   }, [step]);
 
   const mentorCopy = step <= 2
-    ? ["Te acompaño paso a paso", "La instrucción cambiará cuando completes cada acción."]
+    ? ["Te oriento en el recorrido", "Siempre sabrás dónde ir y cómo interactuar; la selección técnica es tuya."]
     : step === 3
       ? ["Ahora relacionas la evidencia", "Tú eliges el recorrido; puedo darte pistas si las solicitas."]
       : ["Es tu turno de decidir", "La ayuda sigue disponible, pero la decisión técnica es tuya."];
+  const completedTargets = useMemo(() => [
+    checks.npc ? "npc" : "",
+    checks.vehicle ? "vehicle" : "",
+    ...epp,
+    ...tools,
+    evidence.includes("manual") ? "manual" : "",
+    evidence.includes("dtc") ? "obd" : "",
+    evidence.includes("measurement") ? "ckp_sensor" : "",
+    repaired ? "ckp_connector" : "",
+    engineRunning ? "ignition" : "",
+  ].filter(Boolean), [checks.npc, checks.vehicle, engineRunning, epp, evidence, repaired, tools]);
+  const preparationFilled = epp.length === 2 && tools.length === 2;
 
   return (
     <main className="app-shell">
@@ -605,13 +636,15 @@ export default function HomePage() {
 
       <section className="game-stage">
         <WorkshopScene
-          active={missionStarted && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision}
+          active={missionStarted && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause}
           currentStep={step}
           helpLevel={helpLevel}
           engineRunning={engineRunning}
+          completedTargets={completedTargets}
           actionPulse={pulse}
           resetToken={resetToken}
           onNearbyChange={setNearby}
+          onNavigationChange={setNavigation}
         />
 
         <header className="module-strip">
@@ -626,14 +659,15 @@ export default function HomePage() {
               <div className="target-disc"><Target size={31} /></div>
               <div><span>TU MISIÓN</span><h1 id="mission-title">Señal perdida</h1></div>
             </div>
-            <p>El motor gira, pero el vehículo no enciende. Investiga la causa, realiza una intervención segura y déjalo operativo.</p>
+            <p>Eres parte del equipo técnico. El motor gira, pero no enciende: aplica lo aprendido para diagnosticar la causa y entregar el vehículo operativo y verificado.</p>
             <div className="mission-meta">
-              <span><Clock3 size={18} /> Tiempo orientativo: 6 minutos</span>
+              <span><Clock3 size={18} /> Tiempo orientativo: 10 minutos</span>
               <span><CircleGauge size={18} /> El tiempo orienta; no provoca fracaso</span>
               <span><ShieldCheck size={18} /> OA 6 · AE 3 · Criterios 3.5 y 3.6</span>
             </div>
+            <div className="control-strip"><span><kbd>WASD</kbd> mover</span><span><kbd>E</kbd> interactuar</span><span><kbd>TAB</kbd> objetivo</span><span><kbd>?</kbd> ayuda</span></div>
             <button className="start-button" type="button" onClick={startMission}>
-              <Play size={22} fill="currentColor" /> COMENZAR MISIÓN <ChevronRight size={24} />
+              <Play size={22} fill="currentColor" /> INICIAR MISIÓN <ChevronRight size={24} />
             </button>
           </section>
         ) : (
@@ -654,6 +688,7 @@ export default function HomePage() {
                 return <span key={label} className={value < step ? "done" : value === step ? "current" : ""} title={label}>{value < step ? <Check size={12} /> : value}<small>{label}</small></span>;
               })}
             </div>
+            {step === 2 && preparationFilled && <button type="button" className="review-selection" onClick={() => setPreparationReviewOpen(true)}><ClipboardCheck size={16} /> Revisar selección</button>}
           </section>
         )}
 
@@ -680,7 +715,14 @@ export default function HomePage() {
           </>
         )}
 
-        {missionStarted && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && (
+        {missionStarted && navigation && !completed && (
+          <section className={`destination-card step-${step}`} aria-live="polite">
+            <div className="destination-arrow" style={{ transform: `rotate(${navigation.angle}rad)` }}><ChevronUp size={22} /></div>
+            <div><span>DESTINO</span><strong>{navigation.label}</strong><small>{navigation.distance <= 1 ? "Has llegado" : `${navigation.distance} m`}</small></div>
+          </section>
+        )}
+
+        {missionStarted && nearby && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && (
           <button type="button" className="interaction-prompt" onClick={() => handleInteract(nearby)}>
             <kbd>E</kbd><span>{targetLabels[nearby]}</span>
           </button>
@@ -709,7 +751,7 @@ export default function HomePage() {
         {missionStarted && briefingOpen && (
           <div className="modal-backdrop pedagogical-backdrop">
             <section className="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="guide-title">
-              <div className="guide-kicker"><span>{stageGuides[step].mode}</span><strong>ETAPA {step} DE 5</strong></div>
+              <div className="guide-kicker"><span>{stageGuides[step].mode}</span><strong>ETAPA {step} DE 5 · {stageGuides[step].time}</strong></div>
               <h2 id="guide-title">{stageGuides[step].title}</h2>
               <div className="guide-block information"><span>¿QUÉ DEBES HACER?</span><p>{stageGuides[step].brief}</p></div>
               <div className="guide-block attention"><span>¿CÓMO DEBES HACERLO?</span><p>{stageGuides[step].how}</p></div>
@@ -749,6 +791,40 @@ export default function HomePage() {
               <div className="dialog-actions help-actions">
                 <button type="button" className="secondary-action" onClick={() => setHelpOpen(false)}>Volver</button>
                 <button type="button" className="primary-action" onClick={requestHint}><Lightbulb size={17} /> Necesito una pista</button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {preparationReviewOpen && (
+          <div className="modal-backdrop pedagogical-backdrop">
+            <section className="guide-dialog compact-dialog" role="dialog" aria-modal="true" aria-labelledby="preparation-title">
+              <button type="button" className="dialog-close" onClick={() => setPreparationReviewOpen(false)} aria-label="Cerrar"><X size={18} /></button>
+              <div className="item-icon"><Backpack size={30} /></div>
+              <span className="dialog-eyebrow">REVISAR SELECCIÓN</span>
+              <h2 id="preparation-title">¿Tu preparación cubre todo lo necesario?</h2>
+              <p>Comprueba que tu selección permita trabajar con seguridad, obtener información del sistema y realizar mediciones.</p>
+              <div className="selection-review">
+                {[...epp, ...tools].map((id) => <span key={id}>{items[id].name}</span>)}
+              </div>
+              <div className="dialog-actions">
+                <button type="button" className="secondary-action" onClick={() => setPreparationReviewOpen(false)}>Seguir revisando</button>
+                <button type="button" className="primary-action" onClick={confirmPreparation}>Confirmar preparación</button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {analysisPause && (
+          <div className="modal-backdrop pedagogical-backdrop">
+            <section className="guide-dialog compact-dialog analysis-dialog" role="dialog" aria-modal="true" aria-labelledby="analysis-title">
+              <div className="analysis-icon"><AlertTriangle size={29} /></div>
+              <span className="dialog-eyebrow">REVISA EL PROCEDIMIENTO</span>
+              <h2 id="analysis-title">Analiza antes de volver a intentar</h2>
+              <p>{analysisPause}</p>
+              <div className="dialog-actions help-actions">
+                <button type="button" className="secondary-action" onClick={() => setAnalysisPause(null)}>Revisar procedimiento</button>
+                <button type="button" className="primary-action" onClick={() => { setAnalysisPause(null); setHelpOpen(true); }}><Lightbulb size={17} /> Solicitar pista</button>
               </div>
             </section>
           </div>

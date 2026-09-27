@@ -8,9 +8,11 @@ type Props = {
   currentStep: number;
   helpLevel: number;
   engineRunning: boolean;
+  completedTargets: string[];
   actionPulse: number;
   resetToken: number;
   onNearbyChange: (id: string | null) => void;
+  onNavigationChange: (info: { label: string; distance: number; angle: number } | null) => void;
 };
 
 type Target = {
@@ -230,15 +232,19 @@ export default function WorkshopScene({
   currentStep,
   helpLevel,
   engineRunning,
+  completedTargets,
   actionPulse,
   resetToken,
   onNearbyChange,
+  onNavigationChange,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, actionPulse, resetToken });
+  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken });
   const nearbyCallbackRef = useRef(onNearbyChange);
-  stateRef.current = { active, currentStep, helpLevel, engineRunning, actionPulse, resetToken };
+  const navigationCallbackRef = useRef(onNavigationChange);
+  stateRef.current = { active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken };
   nearbyCallbackRef.current = onNearbyChange;
+  navigationCallbackRef.current = onNavigationChange;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -359,6 +365,24 @@ export default function WorkshopScene({
     box(ignitionTarget, [0.25, 0.25, 0.25], [0, 0.9, 0], 0xe0a93f, 0.35, 0.35);
     scene.add(ignitionTarget);
 
+    const navigationWaypoint = new THREE.Group();
+    const waypointRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.72, 0.92, 36),
+      new THREE.MeshBasicMaterial({ color: 0xf2b33f, transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    waypointRing.rotation.x = -Math.PI / 2;
+    waypointRing.position.y = 0.045;
+    navigationWaypoint.add(waypointRing);
+    const waypointArrow = new THREE.Mesh(
+      new THREE.ConeGeometry(0.24, 0.55, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffcf55, transparent: true, opacity: 0.94, depthWrite: false }),
+    );
+    waypointArrow.position.y = 1.25;
+    waypointArrow.rotation.z = Math.PI;
+    navigationWaypoint.add(waypointArrow);
+    navigationWaypoint.visible = false;
+    scene.add(navigationWaypoint);
+
     const obstacles = [
       new THREE.Box2(new THREE.Vector2(0.15, -3.3), new THREE.Vector2(6.2, 1.25)),
       new THREE.Box2(new THREE.Vector2(-13.2, -3.5), new THREE.Vector2(-9.15, -2.35)),
@@ -375,6 +399,7 @@ export default function WorkshopScene({
     let lastX = 0;
     let lastY = 0;
     let lastNearby: string | null = null;
+    let lastNavigationKey = "";
     let lastPulse = actionPulse;
     let focusUntil = 0;
     let lastReset = resetToken;
@@ -502,6 +527,45 @@ export default function WorkshopScene({
         nearbyCallbackRef.current(nearbyId);
       }
 
+      let destination: { label: string; x: number; z: number } | null = null;
+      if (game.currentStep === 1) destination = { label: "Bahía de diagnóstico", x: -0.8, z: -0.8 };
+      if (game.currentStep === 2) destination = { label: "Zona de preparación", x: -9.4, z: -4.8 };
+      if (game.currentStep === 3) {
+        const remaining = targets.filter((target) => target.steps.includes(3) && !game.completedTargets.includes(target.id));
+        const closest = remaining.sort((a, b) => {
+          const distanceA = Math.hypot(avatar.position.x - a.root.position.x, avatar.position.z - a.root.position.z);
+          const distanceB = Math.hypot(avatar.position.x - b.root.position.x, avatar.position.z - b.root.position.z);
+          return distanceA - distanceB;
+        })[0];
+        if (closest) destination = { label: "Punto de investigación", x: closest.root.position.x, z: closest.root.position.z };
+      }
+      if (game.currentStep === 4) destination = { label: "Área de procedimiento", x: 3.25, z: -2.1 };
+      if (game.currentStep === 5) destination = game.engineRunning
+        ? { label: "Punto de verificación", x: 0, z: 0.65 }
+        : { label: "Puesto de encendido", x: -0.05, z: 1.75 };
+
+      navigationWaypoint.visible = Boolean(destination && game.currentStep > 0);
+      if (destination) {
+        navigationWaypoint.position.set(destination.x, 0, destination.z);
+        const waypointPulse = 1 + Math.sin(time * 4) * 0.08;
+        waypointRing.scale.setScalar(waypointPulse);
+        waypointArrow.position.y = 1.25 + Math.sin(time * 3.2) * 0.12;
+        const dx = destination.x - avatar.position.x;
+        const dz = destination.z - avatar.position.z;
+        const navigationDistance = Math.hypot(dx, dz);
+        const navigationAngle = Math.atan2(dx, -dz) - orbitYaw;
+        const roundedDistance = Math.max(0, Math.round(navigationDistance));
+        const angleBucket = Math.round(navigationAngle * 10) / 10;
+        const navigationKey = `${destination.label}:${roundedDistance}:${angleBucket}`;
+        if (navigationKey !== lastNavigationKey) {
+          lastNavigationKey = navigationKey;
+          navigationCallbackRef.current({ label: destination.label, distance: roundedDistance, angle: navigationAngle });
+        }
+      } else if (lastNavigationKey) {
+        lastNavigationKey = "";
+        navigationCallbackRef.current(null);
+      }
+
       statusLight.color.setHex(game.engineRunning ? 0x36d477 : 0xe44848);
       statusLight.intensity = game.engineRunning ? 1.4 + Math.sin(time * 10) * 0.12 : 0.85;
       const closeFocus = performance.now() < focusUntil;
@@ -530,6 +594,7 @@ export default function WorkshopScene({
       cancelAnimationFrame(frame);
       observer.disconnect();
       nearbyCallbackRef.current(null);
+      navigationCallbackRef.current(null);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       renderer.dispose();
