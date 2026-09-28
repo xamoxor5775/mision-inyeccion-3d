@@ -506,6 +506,11 @@ function fitWorkshopVehicle(model: THREE.Object3D) {
   model.position.y -= box.min.y;
 }
 
+function publicAssetPath(path: string) {
+  const mountedPrefix = window.location.pathname.startsWith("/mision_laboral") ? "/mision_laboral" : "";
+  return `${mountedPrefix}${path}`;
+}
+
 function makeCar(scene: THREE.Scene) {
   const car = new THREE.Group();
   const engine = new THREE.Group();
@@ -518,7 +523,7 @@ function makeCar(scene: THREE.Scene) {
 
   const loader = new GLTFLoader();
   loader.load(
-    "/models/ferrari-f40-lb.glb",
+    publicAssetPath("/models/ferrari-f40-lb.glb"),
     (gltf) => {
       const model = gltf.scene;
       model.name = "ferrari-f40-liberty-walk";
@@ -616,7 +621,7 @@ function makeAvatar(scene: THREE.Scene) {
   scene.add(avatar);
 
   const loader = new GLTFLoader();
-  loader.load("/models/ken-dreamhouse.glb", (gltf) => {
+  loader.load(publicAssetPath("/models/ken-dreamhouse.glb"), (gltf) => {
     const model = gltf.scene;
     model.name = "ken-dreamhouse";
     model.traverse((object) => {
