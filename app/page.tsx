@@ -108,7 +108,7 @@ const items: Record<string, { name: string; kind: ItemKind; useful: boolean; des
 
 const targetLabels: Record<string, string> = {
   npc: "Hablar con Mateo",
-  vehicle: "Inspeccionar el vehículo",
+  vehicle: "Inspeccionar el Ferrari F40 Liberty Walk",
   goggles: "Revisar lentes de seguridad",
   gloves: "Revisar guantes de protección",
   compression_gauge: "Revisar compresímetro",

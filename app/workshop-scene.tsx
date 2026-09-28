@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 type Props = {
   active: boolean;
@@ -448,156 +449,187 @@ function makeAulaTpWorkshopShell(scene: THREE.Scene) {
   }
 }
 
+function vehicleMeshBox(root: THREE.Object3D) {
+  root.updateMatrixWorld(true);
+  const meshBox = new THREE.Box3();
+  const size = new THREE.Vector3();
+  const volumes: number[] = [];
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    meshBox.setFromObject(object);
+    meshBox.getSize(size);
+    volumes.push(size.x * size.y * size.z);
+  });
+  volumes.sort((a, b) => a - b);
+  const median = volumes[Math.floor(volumes.length / 2)] || 1;
+  const box = new THREE.Box3();
+  let started = false;
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    meshBox.setFromObject(object);
+    meshBox.getSize(size);
+    const volume = size.x * size.y * size.z;
+    if (volume < median * 0.015 || volume > median * 50) return;
+    if (!started) {
+      box.copy(meshBox);
+      started = true;
+    } else {
+      box.union(meshBox);
+    }
+  });
+  return started ? box : new THREE.Box3().setFromObject(root);
+}
+
+function fitWorkshopVehicle(model: THREE.Object3D) {
+  // Technician is ~2.2 units tall. The bay car should read about 5.6 units long
+  // and 1.4 units high, centered on the yellow diagnosis pad.
+  const size = new THREE.Vector3();
+  let box = vehicleMeshBox(model);
+  box.getSize(size);
+  if (size.z > size.x) model.rotation.y += Math.PI / 2;
+
+  box = vehicleMeshBox(model);
+  box.getSize(size);
+  const length = Math.max(size.x, size.z, 0.01);
+  const height = Math.max(size.y, 0.01);
+  let scale = 5.55 / length;
+  let nextHeight = height * scale;
+  if (nextHeight < 1.28) scale *= 1.38 / nextHeight;
+  nextHeight = height * scale;
+  if (nextHeight > 1.52) scale *= 1.42 / nextHeight;
+  model.scale.multiplyScalar(scale);
+
+  box = vehicleMeshBox(model);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.x -= center.x;
+  model.position.z -= center.z;
+  model.position.y -= box.min.y;
+}
+
 function makeCar(scene: THREE.Scene) {
   const car = new THREE.Group();
-  const bodyMat = material(0xe7eaed, 0.24, 0.58);
-  const darkMat = material(0x172332, 0.28, 0.2);
-  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x173c56, roughness: 0.08, metalness: 0.2, transmission: 0.15, clearcoat: 0.55 });
-  const trimMat = material(0x263944, 0.28, 0.62);
-  const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff4c2, emissive: 0xffbf48, emissiveIntensity: 0.55, roughness: 0.22, metalness: 0.1 });
-  const tailMat = new THREE.MeshStandardMaterial({ color: 0xd83d48, emissive: 0x7c111d, emissiveIntensity: 0.45, roughness: 0.3 });
-
-  // A shaped body gives the mission vehicle a readable automotive silhouette instead of a stack of boxes.
-  extrudedProfile(car, [
-    [-2.42, 0.06], [-2.48, 0.38], [-2.18, 0.62], [-1.55, 0.7],
-    [-1.12, 1.02], [0.94, 1.04], [1.46, 0.73], [2.34, 0.64],
-    [2.48, 0.38], [2.43, 0.06],
-  ], 2.08, [0, 0.48, 0], 0xe7eaed, 0.24, 0.58, 0.08, "paint");
-  detailBox(car, [4.72, 0.18, 2.14], [0, 0.48, 0], 0x172332, 0.28, 0.2);
-  detailBox(car, [3.95, 0.055, 1.78], [-0.18, 0.71, 0], 0xd7dfe3, 0.3, 0.5);
-
-  const cabin = extrudedProfile(car, [
-    [-1.42, 0], [-1.08, 0.73], [-0.72, 0.94], [0.83, 0.94],
-    [1.2, 0.68], [1.33, 0],
-  ], 1.78, [-0.18, 1.03, 0], glassMat.color.getHex(), 0.08, 0.2, 0.04);
-  cabin.material = glassMat;
-  detailBox(car, [0.08, 0.88, 1.86], [-0.2, 1.44, 0], 0x152d40, 0.25, 0.4);
-  detailBox(car, [1.6, 0.055, 1.62], [0.55, 1.44, 0], 0x2c6077, 0.08, 0.2);
-  detailBox(car, [1.62, 0.055, 1.62], [-0.94, 1.44, 0], 0x234c63, 0.08, 0.2);
-  detailBox(car, [0.06, 0.72, 1.9], [0.03, 1.45, 0], 0x152b39, 0.28, 0.5);
-
-  // Hood, bumpers, grille and lights create a clear front end for the inspection task.
-  detailBox(car, [1.52, 0.12, 1.84], [1.82, 0.91, 0], bodyMat.color.getHex(), 0.24, 0.58, "paint").rotation.z = -0.06;
-  detailBox(car, [0.24, 0.25, 1.72], [2.4, 0.57, 0], trimMat.color.getHex(), 0.25, 0.5);
-  detailBox(car, [0.08, 0.25, 1.1], [2.53, 0.66, 0], 0x0b1c28, 0.22, 0.35);
-  for (const z of [-0.42, -0.14, 0.14, 0.42]) detailBox(car, [0.06, 0.14, 0.18], [2.57, 0.67, z], 0x87a8b6, 0.22, 0.65);
-  for (const z of [-0.72, 0.72]) detailBox(car, [0.08, 0.18, 0.38], [2.48, 0.9, z], lightMat.color.getHex(), 0.2, 0.18);
-  for (const z of [-0.74, 0.74]) detailBox(car, [0.08, 0.2, 0.3], [-2.42, 0.82, z], tailMat.color.getHex(), 0.3, 0.12);
-  for (const z of [-1.08, 1.08]) {
-    detailBox(car, [0.36, 0.12, 0.08], [-0.3, 1.98, z], trimMat.color.getHex(), 0.3, 0.6);
-    detailBox(car, [0.28, 0.07, 0.09], [-0.3, 1.94, z], 0x2d8bb3, 0.18, 0.35);
-  }
-  for (const x of [-0.75, 0.68]) for (const z of [-0.91, 0.91]) detailBox(car, [0.18, 0.045, 0.05], [x, 1.02, z], 0xd9b24e, 0.3, 0.45);
   const engine = new THREE.Group();
-  detailBox(engine, [1.5, 0.35, 1.35], [0, 0, 0], 0x303942, 0.55, 0.25);
-  detailBox(engine, [0.78, 0.23, 0.72], [0.05, 0.28, 0.1], 0x17202a, 0.45, 0.3);
-  detailBox(engine, [0.92, 0.12, 0.52], [0.02, 0.47, 0.08], 0x68777d, 0.28, 0.6);
-  for (let i = 0; i < 4; i++) {
-    cylinder(engine, 0.075, 0.75, [-0.25 + i * 0.18, 0.27, -0.3], 0xc4483f, 12).rotation.z = Math.PI / 2;
-    cylinder(engine, 0.045, 0.52, [-0.25 + i * 0.18, 0.59, 0.22], 0xe0ad3e, 10).rotation.z = Math.PI / 2;
-  }
-  cylinder(engine, 0.12, 0.56, [0.52, 0.25, 0.36], 0x273b46, 16).rotation.z = Math.PI / 2;
-  for (const z of [-0.47, 0.47]) {
-    const hose = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.035, 8, 18, Math.PI * 1.35), material(0x1d252b, 0.75));
-    hose.position.set(-0.52, 0.3, z);
-    hose.rotation.y = Math.PI / 2;
-    engine.add(hose);
-  }
-  engine.position.set(1.65, 1.22, 0);
-  car.add(engine);
-  for (const x of [-1.55, 1.55]) {
-    for (const z of [-1.03, 1.03]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.49, 0.29, 24), darkMat);
-      wheel.rotation.x = Math.PI / 2;
-      wheel.position.set(x, 0.49, z);
-      wheel.castShadow = true;
-      car.add(wheel);
-      const tire = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.085, 10, 24), texturedMaterial(0x111a21, 0.86, 0.03, "rubber", [2, 2]));
-      tire.position.copy(wheel.position);
-      tire.castShadow = true;
-      car.add(tire);
-      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.31, 18), material(0xb9c3ca, 0.22, 0.75));
-      hub.rotation.x = Math.PI / 2;
-      hub.position.copy(wheel.position);
-      car.add(hub);
-      const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.035, 24), material(0x9da9af, 0.3, 0.72));
-      brake.rotation.x = Math.PI / 2;
-      brake.position.set(x, 0.49, z + (z > 0 ? 0.17 : -0.17));
-      car.add(brake);
-      detailBox(car, [0.08, 0.18, 0.055], [x, 0.49, z + (z > 0 ? 0.2 : -0.2)], 0xd24b42, 0.38, 0.22);
-      for (let spoke = 0; spoke < 5; spoke++) {
-        const lug = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.34, 8), material(0xd9e0e2, 0.2, 0.8));
-        lug.rotation.x = Math.PI / 2;
-        lug.rotation.z = spoke * (Math.PI * 2 / 5);
-        lug.position.set(x, 0.49, z + (z > 0 ? 0.2 : -0.2));
-        car.add(lug);
-      }
-    }
-  }
   const statusLight = new THREE.PointLight(0xe44848, 0.9, 2.8);
-  statusLight.position.set(-1.25, 1.2, 0.88);
+  statusLight.position.set(-2.35, 1.15, 0.85);
   car.add(statusLight);
-  car.position.set(2.8, 0, -1.2);
-  car.rotation.y = -0.16;
+  car.position.set(1.45, 0, -1.05);
+  car.rotation.y = 0;
   scene.add(car);
+
+  const loader = new GLTFLoader();
+  loader.load(
+    "/models/ferrari-f40-lb.glb",
+    (gltf) => {
+      const model = gltf.scene;
+      model.name = "ferrari-f40-liberty-walk";
+      model.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = true;
+          object.receiveShadow = true;
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          for (const entry of materials) {
+            if (entry instanceof THREE.MeshStandardMaterial || entry instanceof THREE.MeshPhysicalMaterial) {
+              entry.envMapIntensity = 1.15;
+            }
+          }
+        }
+      });
+      fitWorkshopVehicle(model);
+      car.add(model);
+    },
+    undefined,
+    () => {
+      // If the GLB fails, keep a readable bay placeholder so the mission still works.
+      extrudedProfile(car, [
+        [-2.42, 0.06], [-2.48, 0.38], [-2.18, 0.62], [-1.55, 0.7],
+        [-1.12, 1.02], [0.94, 1.04], [1.46, 0.73], [2.34, 0.64],
+        [2.48, 0.38], [2.43, 0.06],
+      ], 2.08, [0, 0.48, 0], 0xe7eaed, 0.24, 0.58, 0.08, "paint");
+    },
+  );
   return { car, engine, statusLight };
+}
+
+function restKenArms(model: THREE.Object3D) {
+  // The source mesh is a T-pose. Both the polo sleeves and the arms stick
+  // straight out, so folding only the arms leaves the sleeves raised like wings.
+  // Drop sleeves and arms together from the shoulder seam.
+  model.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const geometry = object.geometry;
+    const position = geometry.getAttribute("position");
+    if (!position) return;
+    const pivotY = 1.45;
+    const pivotX = 0.16;
+    const drop = (88 * Math.PI) / 180;
+    let changed = false;
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i);
+      const y = position.getY(i);
+      const z = position.getZ(i);
+      const reach = Math.abs(x);
+      if (reach < 0.18 || y < 1.28 || y > 1.58) continue;
+      const side = Math.sign(x) || 1;
+      const weight = reach >= 0.24 ? 1 : (reach - 0.18) / 0.06;
+      const angle = -side * drop * weight;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const originX = side * pivotX;
+      const localX = x - originX;
+      const localY = y - pivotY;
+      position.setXYZ(
+        i,
+        localX * cos - localY * sin + originX,
+        localX * sin + localY * cos + pivotY,
+        z,
+      );
+      changed = true;
+    }
+    if (!changed) return;
+    position.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+  });
+}
+
+function fitWorkshopCharacter(model: THREE.Object3D) {
+  // Match the previous technician: about 2.2 units tall, feet on the floor,
+  // body centered on the movement origin. The mesh already faces +Z, which is
+  // the direction the avatar walks.
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const scale = 2.2 / Math.max(size.y, 0.01);
+  model.scale.multiplyScalar(scale);
+  model.updateMatrixWorld(true);
+  const fitted = new THREE.Box3().setFromObject(model);
+  const center = fitted.getCenter(new THREE.Vector3());
+  model.position.x -= center.x;
+  model.position.z -= center.z;
+  model.position.y -= fitted.min.y;
 }
 
 function makeAvatar(scene: THREE.Scene) {
   const avatar = new THREE.Group();
-  const uniform = material(0x123b63, 0.68);
-  const uniformDark = material(0x10283e, 0.72);
-  const skin = material(0xc98258, 0.74);
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.7, 6, 12), uniform);
-  torso.position.y = 1.38;
-  avatar.add(torso);
-  box(avatar, [0.64, 0.08, 0.5], [0, 1.67, 0], 0xc4d8dc, 0.42, 0.2);
-  box(avatar, [0.5, 0.2, 0.42], [0, 0.91, 0], 0x10283e, 0.72);
-  cylinder(avatar, 0.115, 0.16, [0, 1.91, 0], 0xc98258, 12);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), skin);
-  head.scale.set(0.92, 1.08, 0.94);
-  head.position.y = 2.17;
-  avatar.add(head);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.31, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), material(0x211915, 0.82));
-  hair.scale.set(0.95, 0.72, 0.98);
-  hair.position.y = 2.29;
-  avatar.add(hair);
-  for (const side of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), material(0x1a252b, 0.7));
-    eye.position.set(side * 0.105, 2.19, -0.274);
-    avatar.add(eye);
-    cylinder(avatar, 0.065, 0.12, [side * 0.295, 2.16, 0], 0xc98258, 10).rotation.z = Math.PI / 2;
-  }
-  box(avatar, [0.6, 0.72, 0.24], [0, 1.42, 0.32], 0x18232b, 0.76);
-  box(avatar, [0.68, 0.06, 0.47], [0, 1.5, -0.19], 0xd84a42, 0.55);
-  box(avatar, [0.1, 0.28, 0.035], [-0.2, 1.46, -0.37], 0xeaf0f1, 0.4, 0.15);
-  const arms: THREE.Object3D[] = [];
-  const legs: THREE.Object3D[] = [];
-  for (const side of [-1, 1]) {
-    const shoulder = new THREE.Group();
-    shoulder.position.set(side * 0.46, 1.67, 0);
-    const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.105, 0.55, 4, 8), uniform);
-    sleeve.position.y = -0.31;
-    shoulder.add(sleeve);
-    cylinder(shoulder, 0.105, 0.18, [0, -0.67, 0], 0xc98258, 10);
-    avatar.add(shoulder);
-    arms.push(shoulder);
-
-    const hip = new THREE.Group();
-    hip.position.set(side * 0.19, 0.91, 0);
-    const trouser = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.58, 4, 8), uniformDark);
-    trouser.position.y = -0.34;
-    hip.add(trouser);
-    const boot = box(hip, [0.26, 0.2, 0.42], [0, -0.76, -0.07], 0x182126, 0.82);
-    boot.rotation.x = -0.04;
-    avatar.add(hip);
-    legs.push(hip);
-  }
   avatar.position.set(-1.6, 0, 5.8);
   avatar.rotation.y = -0.45;
-  avatar.traverse((object) => { if (object instanceof THREE.Mesh) object.castShadow = true; });
   scene.add(avatar);
-  return { avatar, arms, legs };
+
+  const loader = new GLTFLoader();
+  loader.load("/models/ken-dreamhouse.glb", (gltf) => {
+    const model = gltf.scene;
+    model.name = "ken-dreamhouse";
+    model.traverse((object) => {
+      if (object instanceof THREE.Mesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    });
+    restKenArms(model);
+    fitWorkshopCharacter(model);
+    avatar.add(model);
+  });
+  return avatar;
 }
 
 function makeNpc(scene: THREE.Scene) {
@@ -826,13 +858,13 @@ export default function WorkshopScene({
     }
     const { statusLight } = makeCar(scene);
     const { npc, arm: npcArm } = makeNpc(scene);
-    const { avatar, arms, legs } = makeAvatar(scene);
+    const avatar = makeAvatar(scene);
 
     const targets: Target[] = [];
     const npcTarget = addTarget(targets, "npc", [-1.9, 0, -2.8], [1], "Mateo · Técnico");
     npcTarget.children[1].position.y = 2.9;
     scene.add(npcTarget);
-    const vehicleTarget = addTarget(targets, "vehicle", [0.05, 0, 1.65], [1], "Vehículo");
+    const vehicleTarget = addTarget(targets, "vehicle", [1.45, 0, 1.55], [1], "Ferrari F40");
     scene.add(vehicleTarget);
 
     const toolPositions: Record<string, [number, number, number]> = {
@@ -895,7 +927,7 @@ export default function WorkshopScene({
     scene.add(navigationWaypoint);
 
     const obstacles = [
-      new THREE.Box2(new THREE.Vector2(0.15, -3.3), new THREE.Vector2(6.2, 1.25)),
+      new THREE.Box2(new THREE.Vector2(-1.7, -2.55), new THREE.Vector2(4.6, 0.45)),
       new THREE.Box2(new THREE.Vector2(-13.2, -3.5), new THREE.Vector2(-9.15, -2.35)),
       new THREE.Box2(new THREE.Vector2(-11.1, -8.2), new THREE.Vector2(-8.5, -6.8)),
       new THREE.Box2(new THREE.Vector2(-8.2, -8.2), new THREE.Vector2(-5.6, -6.8)),
@@ -1035,11 +1067,9 @@ export default function WorkshopScene({
       const stride = game.reducedMotion ? 0 : moving ? Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9)) * 0.58 : Math.sin(time * 2) * 0.025;
       const bodyLift = game.reducedMotion || !moving ? 0 : Math.abs(Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9))) * 0.035;
       avatar.position.y = THREE.MathUtils.lerp(avatar.position.y, bodyLift, 1 - Math.pow(0.02, dt));
-      arms[0].rotation.x = stride;
-      arms[1].rotation.x = -stride;
-      legs[0].rotation.x = -stride;
-      legs[1].rotation.x = stride;
-      if (performance.now() < focusUntil) arms[1].rotation.x = -1.15;
+      const inspecting = performance.now() < focusUntil;
+      avatar.rotation.x = THREE.MathUtils.lerp(avatar.rotation.x, inspecting ? 0.22 : 0, 1 - Math.pow(0.02, dt));
+      avatar.rotation.z = stride * 0.08;
       npc.rotation.y = game.reducedMotion ? 0.4 : Math.sin(time * 0.5) * 0.08 + 0.4;
       npcArm.rotation.z = game.reducedMotion ? -0.3 : -0.3 + Math.sin(time * 1.7) * 0.09;
 
