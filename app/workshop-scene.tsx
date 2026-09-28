@@ -167,6 +167,62 @@ function makeSafetyStation(scene: THREE.Scene, x: number, z: number) {
   scene.add(station);
 }
 
+function makeDiagnosticStation(scene: THREE.Scene, x: number, z: number) {
+  const station = new THREE.Group();
+  box(station, [3.1, 0.16, 1.05], [0, 1.0, 0], 0x465760, 0.38, 0.52);
+  for (const px of [-1.35, 1.35]) for (const pz of [-0.38, 0.38]) box(station, [0.14, 1, 0.14], [px, 0.5, pz], 0x33444d, 0.45, 0.5);
+  box(station, [0.95, 0.08, 0.55], [-0.72, 1.28, 0], 0x20303a, 0.5, 0.35);
+  box(station, [0.78, 0.46, 0.08], [-0.72, 1.55, -0.2], 0x2b91aa, 0.28, 0.25);
+  box(station, [0.48, 0.13, 0.65], [0.55, 1.16, 0], 0xc7463e, 0.52);
+  box(station, [0.32, 0.025, 0.28], [0.55, 1.24, -0.08], 0x8ccedd, 0.2, 0.15);
+  const cable = new THREE.Mesh(
+    new THREE.TorusGeometry(0.34, 0.025, 8, 24, Math.PI * 1.55),
+    material(0x27343b, 0.7),
+  );
+  cable.position.set(1.02, 1.13, 0.2);
+  cable.rotation.x = Math.PI / 2;
+  station.add(cable);
+  station.position.set(x, 0, z);
+  scene.add(station);
+}
+
+function makeComponentDisplay(scene: THREE.Scene, x: number, z: number) {
+  const display = new THREE.Group();
+  box(display, [3.8, 2.5, 0.18], [0, 1.55, 0], 0x41545e, 0.65, 0.3);
+  const brakeDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.11, 28), material(0x9ca9ae, 0.28, 0.72));
+  brakeDisc.rotation.x = Math.PI / 2;
+  brakeDisc.position.set(-1.12, 1.72, 0.14);
+  display.add(brakeDisc);
+  cylinder(display, 0.18, 0.14, [-1.12, 1.72, 0.15], 0x485860, 18).rotation.x = Math.PI / 2;
+  const spring = new THREE.Mesh(new THREE.TorusKnotGeometry(0.22, 0.045, 64, 8, 2, 5), material(0x246f91, 0.35, 0.45));
+  spring.scale.set(0.72, 1.3, 0.72);
+  spring.position.set(0.05, 1.72, 0.18);
+  display.add(spring);
+  box(display, [0.55, 0.72, 0.16], [1.15, 1.72, 0.14], 0x303d45, 0.5, 0.35);
+  for (let i = 0; i < 4; i++) cylinder(display, 0.045, 0.4, [0.92 + i * 0.15, 1.74, 0.3], 0xb6c0c4, 10);
+  display.position.set(x, 0, z);
+  scene.add(display);
+}
+
+function makeCeilingSystem(scene: THREE.Scene) {
+  for (const z of [-8.6, -3.1, 2.4, 7.9]) {
+    box(scene, [32.6, 0.18, 0.24], [0, 7.05, z], 0x425762, 0.48, 0.55);
+    for (const x of [-14, -8, -2, 4, 10, 14]) box(scene, [0.13, 0.72, 0.13], [x, 6.7, z], 0x526771, 0.48, 0.5);
+  }
+  for (const x of [-12, -4, 4, 12]) box(scene, [0.2, 0.2, 23], [x, 7.05, 0], 0x425762, 0.48, 0.55);
+  const ductMat = material(0x819197, 0.42, 0.48);
+  const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 24, 16), ductMat);
+  duct.rotation.x = Math.PI / 2;
+  duct.position.set(-13.8, 6.45, 0);
+  scene.add(duct);
+  for (const z of [-7, 0, 7]) {
+    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.3, 14), ductMat);
+    branch.rotation.z = Math.PI / 2;
+    branch.position.set(-12.7, 6.45, z);
+    scene.add(branch);
+  }
+}
+
 function makeCar(scene: THREE.Scene) {
   const car = new THREE.Group();
   const bodyMat = material(0xe7eaed, 0.24, 0.58);
@@ -385,6 +441,9 @@ export default function WorkshopScene({
     floorGrid.material.opacity = 0.19;
     floorGrid.material.transparent = true;
     scene.add(floorGrid);
+    box(scene, [11.7, 0.014, 6.2], [1.45, 0.012, -1.0], 0x9eafb5, 0.62);
+    box(scene, [6.2, 0.015, 5.4], [-11.4, 0.013, -5.0], 0x879ba4, 0.62);
+    box(scene, [6.1, 0.015, 5.2], [11.6, 0.013, 6.3], 0x9aabb1, 0.62);
     for (const z of [-4.15, 2.15]) box(scene, [13.5, 0.018, 0.11], [1.4, 0.016, z], 0xf1c94d);
     for (const x of [-4.9, 7.7]) {
       box(scene, [0.11, 0.02, 5.9], [x, 0.018, -1.0], 0xf1c94d);
@@ -394,6 +453,16 @@ export default function WorkshopScene({
     box(scene, [34, 7.5, 0.35], [0, 3.75, -10.4], 0xdde6e8);
     box(scene, [0.35, 7.5, 25], [-16.8, 3.75, 0], 0xd7e2e6);
     box(scene, [0.35, 7.5, 25], [16.8, 3.75, 0], 0xd7e2e6);
+    makeCeilingSystem(scene);
+    for (const x of [-13.2, -7.7, -2.2, 3.3, 8.8, 14.3]) {
+      box(scene, [4.45, 1.2, 0.12], [x, 6.05, -10.17], 0x87aebc, 0.2, 0.22);
+      box(scene, [4.1, 0.92, 0.04], [x, 6.05, -10.08], 0xb9d6df, 0.12, 0.12);
+    }
+    for (const x of [-16.45, 16.45]) {
+      for (const z of [-7.5, -2.5, 2.5, 7.5]) box(scene, [0.16, 6.7, 0.48], [x, 3.35, z], 0x3f5866, 0.45, 0.48);
+    }
+    box(scene, [5.4, 4.3, 0.18], [-12.8, 2.15, -10.1], 0x425965, 0.55, 0.45);
+    for (let i = 0; i < 4; i++) box(scene, [4.85, 0.1, 0.05], [-12.8, 0.55 + i * 0.95, -9.98], 0x94a7ad, 0.35, 0.5);
     box(scene, [10, 1.45, 0.1], [2.5, 3.9, -10.18], 0x0a4e8d);
     box(scene, [8, 0.18, 0.12], [2.5, 3.1, -10.1], 0x24a6bb);
     const workshopSign = createLabel("MECÁNICA AUTOMOTRIZ", "#0d477c");
@@ -407,7 +476,7 @@ export default function WorkshopScene({
     const toolsSign = createWallSign("ZONA 03 · HERRAMIENTAS", "#d59a2b");
     toolsSign.position.set(-10.8, 5.2, -10.14);
     scene.add(toolsSign);
-    const injectionSign = createWallSign("SISTEMA DE INYECCIÓN", "#2b9b78");
+    const injectionSign = createWallSign("AJUSTE DE MOTORES", "#2b9b78");
     injectionSign.position.set(10.2, 3.35, -10.13);
     injectionSign.scale.set(0.92, 0.92, 0.92);
     scene.add(injectionSign);
@@ -426,6 +495,8 @@ export default function WorkshopScene({
     makeTireRack(scene, 13.2, -7.75);
     makeEngineStand(scene, 11.9, 5.9);
     makeSafetyStation(scene, -15.95, -7.55);
+    makeDiagnosticStation(scene, -13.2, 7.7);
+    makeComponentDisplay(scene, 14.6, -2.4);
 
     // Compact support equipment keeps the circulation corridor around the mission vehicle clear.
     const compressor = new THREE.Group();
