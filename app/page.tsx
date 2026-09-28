@@ -684,17 +684,28 @@ export default function HomePage() {
         {entryOpen && (
           <div className="entry-backdrop">
             <section className="entry-menu" role="dialog" aria-modal="true" aria-labelledby="entry-title">
-              <div className="entry-brand"><div className="brand-mark"><GraduationCap size={29} /><Wrench size={15} /></div><div><span>AULA TP CHILE</span><strong>Misión Laboral 3D</strong></div></div>
-              <div className="entry-heading"><span>MÓDULO 01 · AJUSTE DE MOTORES</span><h1 id="entry-title">Compresión perdida</h1><p>Configura la experiencia antes de ingresar al taller.</p></div>
-              <div className="entry-options">
-                <label className="entry-toggle"><input type="checkbox" checked={structuredSupport} onChange={(event) => setStructuredSupport(event.target.checked)} /><span><Accessibility size={19} /><b>Orientación estructurada</b><small>Instrucciones más directas y pistas anticipadas.</small></span></label>
-                <label className="entry-toggle"><input type="checkbox" checked={keepInstructions} onChange={(event) => setKeepInstructions(event.target.checked)} /><span><Target size={19} /><b>Mantener controles visibles</b><small>Conserva el recordatorio durante toda la misión.</small></span></label>
-                <label className="entry-toggle"><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /><span><Eye size={19} /><b>Reducir movimiento visual</b><small>Desactiva balanceos y animaciones ambientales.</small></span></label>
-                <label className="entry-toggle"><input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} /><span>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}<b>Sonidos de confirmación</b><small>Utiliza señales breves, sin sonidos arcade.</small></span></label>
+              <div className="entry-hero">
+                <div className="entry-brand"><div className="brand-mark"><GraduationCap size={29} /><Wrench size={15} /></div><div><span>AULA TP CHILE</span><strong>Misión Laboral 3D</strong></div></div>
+                <div className="entry-level"><span>NIVEL 1</span><b>MÓDULO 01 · AJUSTE DE MOTORES</b></div>
+                <div className="entry-heading"><span>MISIÓN DE DIAGNÓSTICO</span><h1 id="entry-title">Compresión perdida</h1><p>Un motor perdió potencia y presenta un ralentí inestable. Explora el taller, reúne evidencias y recupera su funcionamiento.</p></div>
+                <div className="entry-mission-stats">
+                  <span><Clock3 size={18} /><b>10 min</b><small>Tiempo orientativo</small></span>
+                  <span><Target size={18} /><b>5 etapas</b><small>Ruta de misión</small></span>
+                  <span><ShieldCheck size={18} /><b>OA 4 · AE 1</b><small>Aprendizaje técnico</small></span>
+                </div>
               </div>
-              <label className="sensitivity-control"><span><SlidersHorizontal size={18} /> Sensibilidad de cámara <b>{Math.round(cameraSensitivity * 100)}%</b></span><input type="range" min="0.5" max="1.3" step="0.1" value={cameraSensitivity} onChange={(event) => setCameraSensitivity(Number(event.target.value))} /></label>
-              <button type="button" className="entry-button" onClick={() => setEntryOpen(false)}><Play size={20} fill="currentColor" /> INGRESAR AL TALLER <ChevronRight size={22} /></button>
-              <p className="entry-note">Podrás cambiar estas opciones desde el menú de pausa.</p>
+              <div className="entry-setup">
+                <div className="entry-setup-heading"><span>CONFIGURA TU PARTIDA</span><strong>Experiencia de juego</strong><p>Selecciona las ayudas que necesitas. Podrás modificarlas durante la misión.</p></div>
+                <div className="entry-options">
+                  <label className="entry-toggle"><input type="checkbox" checked={structuredSupport} onChange={(event) => setStructuredSupport(event.target.checked)} /><span><Accessibility size={19} /><b>Orientación estructurada</b><small>Instrucciones directas y pistas anticipadas.</small></span></label>
+                  <label className="entry-toggle"><input type="checkbox" checked={keepInstructions} onChange={(event) => setKeepInstructions(event.target.checked)} /><span><Target size={19} /><b>Controles visibles</b><small>Muestra el recordatorio durante la misión.</small></span></label>
+                  <label className="entry-toggle"><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /><span><Eye size={19} /><b>Reducir movimiento</b><small>Disminuye las animaciones ambientales.</small></span></label>
+                  <label className="entry-toggle"><input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} /><span>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}<b>Sonidos</b><small>Activa las señales de confirmación.</small></span></label>
+                </div>
+                <label className="sensitivity-control"><span><SlidersHorizontal size={18} /> Sensibilidad de cámara <b>{Math.round(cameraSensitivity * 100)}%</b></span><input type="range" min="0.5" max="1.3" step="0.1" value={cameraSensitivity} onChange={(event) => setCameraSensitivity(Number(event.target.value))} /></label>
+                <button type="button" className="entry-button" onClick={() => setEntryOpen(false)}><Play size={20} fill="currentColor" /> INGRESAR AL JUEGO <ChevronRight size={22} /></button>
+                <p className="entry-note"><CircleGauge size={14} /> Partida preparada · progreso automático</p>
+              </div>
             </section>
           </div>
         )}
