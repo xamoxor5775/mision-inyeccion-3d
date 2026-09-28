@@ -27,8 +27,18 @@ type Target = {
   steps: number[];
 };
 
+const materialCache = new Map<string, THREE.MeshStandardMaterial>();
+const boxGeometryCache = new Map<string, THREE.BoxGeometry>();
+const cylinderGeometryCache = new Map<string, THREE.CylinderGeometry>();
+
 function material(color: number, roughness = 0.65, metalness = 0.05) {
-  return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  const key = `${color}:${roughness}:${metalness}`;
+  let cached = materialCache.get(key);
+  if (!cached) {
+    cached = new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    materialCache.set(key, cached);
+  }
+  return cached;
 }
 
 function box(
@@ -39,7 +49,13 @@ function box(
   roughness = 0.65,
   metalness = 0.05,
 ) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material(color, roughness, metalness));
+  const geometryKey = size.join(":");
+  let geometry = boxGeometryCache.get(geometryKey);
+  if (!geometry) {
+    geometry = new THREE.BoxGeometry(...size);
+    boxGeometryCache.set(geometryKey, geometry);
+  }
+  const mesh = new THREE.Mesh(geometry, material(color, roughness, metalness));
   mesh.position.set(...position);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -55,7 +71,13 @@ function cylinder(
   color: number,
   radialSegments = 20,
 ) {
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, radialSegments), material(color));
+  const geometryKey = `${radius}:${height}:${radialSegments}`;
+  let geometry = cylinderGeometryCache.get(geometryKey);
+  if (!geometry) {
+    geometry = new THREE.CylinderGeometry(radius, radius, height, radialSegments);
+    cylinderGeometryCache.set(geometryKey, geometry);
+  }
+  const mesh = new THREE.Mesh(geometry, material(color));
   mesh.position.set(...position);
   mesh.castShadow = true;
   parent.add(mesh);
@@ -313,30 +335,53 @@ function makeCar(scene: THREE.Scene) {
 
 function makeAvatar(scene: THREE.Scene) {
   const avatar = new THREE.Group();
-  const uniform = material(0x102e52, 0.62);
-  const skin = material(0xc98258, 0.72);
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.72, 8, 14), uniform);
-  torso.position.y = 1.34;
+  const uniform = material(0x123b63, 0.68);
+  const uniformDark = material(0x10283e, 0.72);
+  const skin = material(0xc98258, 0.74);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.7, 6, 12), uniform);
+  torso.position.y = 1.38;
   avatar.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.31, 22, 16), skin);
-  head.position.y = 2.2;
+  box(avatar, [0.64, 0.08, 0.5], [0, 1.67, 0], 0xc4d8dc, 0.42, 0.2);
+  box(avatar, [0.5, 0.2, 0.42], [0, 0.91, 0], 0x10283e, 0.72);
+  cylinder(avatar, 0.115, 0.16, [0, 1.91, 0], 0xc98258, 12);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), skin);
+  head.scale.set(0.92, 1.08, 0.94);
+  head.position.y = 2.17;
   avatar.add(head);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.325, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.48), material(0x1b1412));
-  hair.position.y = 2.27;
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.31, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), material(0x211915, 0.82));
+  hair.scale.set(0.95, 0.72, 0.98);
+  hair.position.y = 2.29;
   avatar.add(hair);
-  box(avatar, [0.62, 0.8, 0.26], [0, 1.42, 0.35], 0x141a20, 0.7);
-  box(avatar, [0.78, 0.07, 0.5], [0, 1.5, -0.18], 0xe8403a, 0.5);
-  const arms: THREE.Mesh[] = [];
-  const legs: THREE.Mesh[] = [];
   for (const side of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.66, 5, 10), uniform);
-    arm.position.set(side * 0.5, 1.36, 0);
-    avatar.add(arm);
-    arms.push(arm);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.72, 5, 10), uniform);
-    leg.position.set(side * 0.2, 0.53, 0);
-    avatar.add(leg);
-    legs.push(leg);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), material(0x1a252b, 0.7));
+    eye.position.set(side * 0.105, 2.19, -0.274);
+    avatar.add(eye);
+    cylinder(avatar, 0.065, 0.12, [side * 0.295, 2.16, 0], 0xc98258, 10).rotation.z = Math.PI / 2;
+  }
+  box(avatar, [0.6, 0.72, 0.24], [0, 1.42, 0.32], 0x18232b, 0.76);
+  box(avatar, [0.68, 0.06, 0.47], [0, 1.5, -0.19], 0xd84a42, 0.55);
+  box(avatar, [0.1, 0.28, 0.035], [-0.2, 1.46, -0.37], 0xeaf0f1, 0.4, 0.15);
+  const arms: THREE.Object3D[] = [];
+  const legs: THREE.Object3D[] = [];
+  for (const side of [-1, 1]) {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(side * 0.46, 1.67, 0);
+    const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.105, 0.55, 4, 8), uniform);
+    sleeve.position.y = -0.31;
+    shoulder.add(sleeve);
+    cylinder(shoulder, 0.105, 0.18, [0, -0.67, 0], 0xc98258, 10);
+    avatar.add(shoulder);
+    arms.push(shoulder);
+
+    const hip = new THREE.Group();
+    hip.position.set(side * 0.19, 0.91, 0);
+    const trouser = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.58, 4, 8), uniformDark);
+    trouser.position.y = -0.34;
+    hip.add(trouser);
+    const boot = box(hip, [0.26, 0.2, 0.42], [0, -0.76, -0.07], 0x182126, 0.82);
+    boot.rotation.x = -0.04;
+    avatar.add(hip);
+    legs.push(hip);
   }
   avatar.position.set(-1.6, 0, 5.8);
   avatar.rotation.y = -0.45;
@@ -448,7 +493,8 @@ export default function WorkshopScene({
     scene.fog = new THREE.Fog(0xcbdce7, 25, 47);
     const camera = new THREE.PerspectiveCamera(53, 1, 0.1, 100);
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65));
+    const maxPixelRatio = window.innerWidth <= 700 ? 1.1 : 1.4;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -460,7 +506,7 @@ export default function WorkshopScene({
     const sun = new THREE.DirectionalLight(0xfff4dc, 3.25);
     sun.position.set(6, 13, 8);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.left = -18;
     sun.shadow.camera.right = 18;
     sun.shadow.camera.top = 18;
@@ -777,6 +823,8 @@ export default function WorkshopScene({
       const crouching = keys.has("KeyC") || keys.has("ControlLeft") || keys.has("ControlRight");
       avatar.scale.y = THREE.MathUtils.lerp(avatar.scale.y, crouching ? 0.72 : 1, 1 - Math.pow(0.005, dt));
       const stride = game.reducedMotion ? 0 : moving ? Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9)) * 0.58 : Math.sin(time * 2) * 0.025;
+      const bodyLift = game.reducedMotion || !moving ? 0 : Math.abs(Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9))) * 0.035;
+      avatar.position.y = THREE.MathUtils.lerp(avatar.position.y, bodyLift, 1 - Math.pow(0.02, dt));
       arms[0].rotation.x = stride;
       arms[1].rotation.x = -stride;
       legs[0].rotation.x = -stride;
@@ -923,6 +971,9 @@ export default function WorkshopScene({
         }
         if (object instanceof THREE.Sprite) object.material.map?.dispose();
       });
+      materialCache.clear();
+      boxGeometryCache.clear();
+      cylinderGeometryCache.clear();
     };
   }, []);
 
