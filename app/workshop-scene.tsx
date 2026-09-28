@@ -639,19 +639,41 @@ function makeAvatar(scene: THREE.Scene) {
 
 function makeNpc(scene: THREE.Scene) {
   const npc = new THREE.Group();
+  const fallback = new THREE.Group();
   const uniform = material(0x174a78);
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.78, 6, 12), uniform);
   body.position.y = 1.22;
-  npc.add(body);
+  fallback.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 12), material(0xb97954));
   head.position.y = 2.07;
-  npc.add(head);
+  fallback.add(head);
   const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.58, 5, 10), uniform);
   arm.position.set(0.45, 1.28, 0);
   arm.rotation.z = -0.3;
-  npc.add(arm);
+  fallback.add(arm);
+  npc.add(fallback);
   npc.position.set(-1.9, 0, -2.8);
   scene.add(npc);
+
+  const loader = new GLTFLoader();
+  loader.load(publicAssetPath("/models/mechanic.glb"), (gltf) => {
+    const model = gltf.scene;
+    model.name = "mechanic-character";
+    model.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const entry of materials) {
+        if (entry instanceof THREE.MeshStandardMaterial || entry instanceof THREE.MeshPhysicalMaterial) {
+          entry.envMapIntensity = 1.05;
+        }
+      }
+    });
+    fitWorkshopCharacter(model);
+    fallback.visible = false;
+    npc.add(model);
+  });
   return { npc, arm };
 }
 
