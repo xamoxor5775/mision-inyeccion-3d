@@ -278,7 +278,7 @@ export default function HomePage() {
   const record = useCallback((actionId: string, result: string, evidenceValue = "") => {
     const event: GameEvent = {
       action_id: actionId,
-      modulo: "ME-MEAU-M05",
+      modulo: "ME-MEAU-M01",
       oa_ae: "OA 4 · AE 1",
       criterio: actionId.includes("verify") ? "1.5" : actionId.includes("manual") ? "1.1" : "1.4",
       habilidad: actionId,
@@ -722,12 +722,12 @@ export default function HomePage() {
             <section className="entry-menu" role="dialog" aria-modal="true" aria-labelledby="entry-title">
               <div className="entry-hero">
                 <div className="entry-brand"><div className="brand-mark"><GraduationCap size={29} /><Wrench size={15} /></div><div><span>AULA TP CHILE</span><strong>Misión Laboral 3D</strong></div></div>
-                <div className="entry-level"><span>NIVEL 1</span><b>MÓDULO 01 · AJUSTE DE MOTORES</b></div>
-                <div className="entry-heading"><span>MISIÓN DE DIAGNÓSTICO</span><h1 id="entry-title">Compresión perdida</h1><p>Un motor perdió potencia y presenta un ralentí inestable. Explora el taller, reúne evidencias y recupera su funcionamiento.</p></div>
+                <div className="entry-level"><span>NIVEL 1</span><b>MÓDULO 01 · AJUSTE DE MOTORES · TRAMO PRÁCTICO 30%</b></div>
+                <div className="entry-heading"><span>MISIÓN DE DIAGNÓSTICO</span><h1 id="entry-title">Compresión perdida</h1><p>Aplica las bases del módulo en una orden de trabajo: inspecciona, mide, compara evidencias y verifica el resultado.</p></div>
                 <div className="entry-mission-stats">
                   <span><Clock3 size={18} /><b>10 min</b><small>Tiempo orientativo</small></span>
                   <span><Target size={18} /><b>5 etapas</b><small>Ruta de misión</small></span>
-                  <span><ShieldCheck size={18} /><b>OA 4 · AE 1</b><small>Aprendizaje técnico</small></span>
+                  <span><ShieldCheck size={18} /><b>30 % módulo</b><small>Bases laborales</small></span>
                 </div>
               </div>
               <div className="entry-setup">
@@ -762,7 +762,8 @@ export default function HomePage() {
             <div className="mission-meta">
               <span><Clock3 size={18} /> Tiempo orientativo: 10 minutos</span>
               <span><CircleGauge size={18} /> El tiempo orienta; no provoca fracaso</span>
-              <span><ShieldCheck size={18} /> OA 4 · AE 1 · Criterios 1.1, 1.4 y 1.5</span>
+              <span><ShieldCheck size={18} /> OA 4 · AE 1 · Evidencias de los criterios 1.1, 1.4 y 1.5</span>
+              <span><ClipboardCheck size={18} /> Cobertura: tramo práctico fundamental del 30 % del módulo</span>
             </div>
             <div className="control-strip"><span><kbd>WASD</kbd> mover</span><span><kbd>E</kbd> interactuar</span><span><kbd>C</kbd> agacharse</span><span><kbd>ESC</kbd> pausa</span></div>
             <button className="start-button" type="button" onClick={startMission}>
@@ -1068,6 +1069,7 @@ export default function HomePage() {
                 <p><b>Decisiones correctas:</b> reuniste evidencia antes de intervenir y verificaste el resultado.</p>
                 <p><b>Aspectos que necesitaste revisar:</b> {mistakes || hintsUsed ? `${mistakes} decisiones revisadas y ${hintsUsed} pistas solicitadas.` : "completaste el procedimiento sin correcciones ni pistas."}</p>
                 <p><b>Lo que aprendiste:</b> el diagnóstico del motor se fundamenta comparando el manual, las mediciones de sus componentes y su condición real.</p>
+                <p><b>Alcance de esta estación:</b> aplicaste el tramo práctico fundamental correspondiente al 30 % trabajado en el simulador. Los procedimientos de desmontaje, metrología avanzada y reparación integral continúan en otras experiencias del módulo.</p>
               </div>
               <label className="reflection-field">¿Qué decisión consideras más importante durante el procedimiento y por qué?
                 <textarea value={reflection} onChange={(event) => setReflection(event.target.value)} placeholder="Escribe una reflexión breve..." />
