@@ -223,6 +223,44 @@ function makeCeilingSystem(scene: THREE.Scene) {
   }
 }
 
+function makeAulaTpWorkshopShell(scene: THREE.Scene) {
+  const graphite = 0x344750;
+  const seam = 0x253943;
+  const aulaBlue = 0x167493;
+  const warmTechnicalWhite = 0xdfe6e6;
+
+  // Repeated panels establish a reusable Aula TP industrial architecture without changing the map.
+  for (let i = 0; i < 7; i++) {
+    const x = -14.4 + i * 4.8;
+    box(scene, [4.62, 1.28, 0.08], [x, 0.64, -10.2], graphite, 0.76, 0.12);
+    box(scene, [4.62, 0.11, 0.1], [x, 1.34, -10.15], aulaBlue, 0.48, 0.2);
+    box(scene, [0.08, 3.55, 0.11], [x + 2.35, 3.05, -10.13], seam, 0.68, 0.2);
+  }
+  for (const side of [-1, 1]) {
+    const x = side * 16.62;
+    for (let i = 0; i < 5; i++) {
+      const z = -8 + i * 4;
+      box(scene, [0.08, 1.28, 3.82], [x, 0.64, z], graphite, 0.76, 0.12);
+      box(scene, [0.1, 0.11, 3.82], [x - side * 0.05, 1.34, z], aulaBlue, 0.48, 0.2);
+      box(scene, [0.11, 3.55, 0.08], [x - side * 0.04, 3.05, z + 1.96], seam, 0.68, 0.2);
+    }
+  }
+
+  // Segmented vehicle access and a matching pedestrian service door.
+  box(scene, [5.5, 4.45, 0.12], [-12.8, 2.23, -10.08], warmTechnicalWhite, 0.72, 0.15);
+  for (let i = 0; i < 5; i++) box(scene, [5.18, 0.075, 0.04], [-12.8, 0.47 + i * 0.89, -9.99], 0x82959c, 0.45, 0.42);
+  for (const x of [-14.35, -12.8, -11.25]) box(scene, [0.08, 0.48, 0.05], [x, 3.56, -9.98], 0x4d7787, 0.35, 0.35);
+  box(scene, [1.45, 2.45, 0.13], [14.65, 1.23, -10.07], 0x294953, 0.65, 0.38);
+  box(scene, [1.16, 0.48, 0.05], [14.65, 1.86, -9.98], 0x6a9eae, 0.2, 0.25);
+  cylinder(scene, 0.055, 0.06, [14.15, 1.16, -9.96], 0xd6b34a, 12).rotation.x = Math.PI / 2;
+
+  // Restrained safety identifiers make the structural rhythm readable at a distance.
+  for (const x of [-15.9, -5.3, 5.3, 15.9]) {
+    box(scene, [0.48, 0.75, 0.48], [x, 0.38, -9.75], 0xe0ad3e, 0.58, 0.16);
+    box(scene, [0.5, 0.13, 0.5], [x, 0.78, -9.75], seam, 0.5, 0.3);
+  }
+}
+
 function makeCar(scene: THREE.Scene) {
   const car = new THREE.Group();
   const bodyMat = material(0xe7eaed, 0.24, 0.58);
@@ -450,9 +488,10 @@ export default function WorkshopScene({
       box(scene, [0.58, 0.021, 0.13], [x, 0.019, 2.1], 0xf1c94d);
     }
 
-    box(scene, [34, 7.5, 0.35], [0, 3.75, -10.4], 0xdde6e8);
-    box(scene, [0.35, 7.5, 25], [-16.8, 3.75, 0], 0xd7e2e6);
-    box(scene, [0.35, 7.5, 25], [16.8, 3.75, 0], 0xd7e2e6);
+    box(scene, [34, 7.5, 0.35], [0, 3.75, -10.4], 0xdfe5e4, 0.82);
+    box(scene, [0.35, 7.5, 25], [-16.8, 3.75, 0], 0xd9e1e1, 0.82);
+    box(scene, [0.35, 7.5, 25], [16.8, 3.75, 0], 0xd9e1e1, 0.82);
+    makeAulaTpWorkshopShell(scene);
     makeCeilingSystem(scene);
     for (const x of [-13.2, -7.7, -2.2, 3.3, 8.8, 14.3]) {
       box(scene, [4.45, 1.2, 0.12], [x, 6.05, -10.17], 0x87aebc, 0.2, 0.22);
@@ -461,8 +500,6 @@ export default function WorkshopScene({
     for (const x of [-16.45, 16.45]) {
       for (const z of [-7.5, -2.5, 2.5, 7.5]) box(scene, [0.16, 6.7, 0.48], [x, 3.35, z], 0x3f5866, 0.45, 0.48);
     }
-    box(scene, [5.4, 4.3, 0.18], [-12.8, 2.15, -10.1], 0x425965, 0.55, 0.45);
-    for (let i = 0; i < 4; i++) box(scene, [4.85, 0.1, 0.05], [-12.8, 0.55 + i * 0.95, -9.98], 0x94a7ad, 0.35, 0.5);
     box(scene, [10, 1.45, 0.1], [2.5, 3.9, -10.18], 0x0a4e8d);
     box(scene, [8, 0.18, 0.12], [2.5, 3.1, -10.1], 0x24a6bb);
     const workshopSign = createLabel("MECÁNICA AUTOMOTRIZ", "#0d477c");
@@ -482,9 +519,10 @@ export default function WorkshopScene({
     scene.add(injectionSign);
 
     for (const x of [-9.8, -6.9, 8.7, 11.6]) {
-      box(scene, [2.2, 1.15, 0.9], [x, 0.58, -7.5], 0xc93232, 0.5);
+      box(scene, [2.2, 1.15, 0.9], [x, 0.58, -7.5], 0x176f92, 0.5, 0.18);
       box(scene, [2.4, 0.14, 1.05], [x, 1.21, -7.5], 0x263443, 0.35);
-      for (let y = 0.35; y < 1.1; y += 0.25) box(scene, [1.8, 0.04, 0.02], [x, y, -7.03], 0xdce6e9);
+      for (let y = 0.35; y < 1.1; y += 0.25) box(scene, [1.8, 0.04, 0.02], [x, y, -7.03], 0x9fc3cf);
+      for (const px of [-0.82, 0.82]) cylinder(scene, 0.09, 0.08, [x + px, 0.08, -7.5], 0x202b31, 12).rotation.z = Math.PI / 2;
     }
     box(scene, [3.8, 2.55, 0.45], [-11.1, 1.27, -3.0], 0x315d70);
     for (let i = 0; i < 8; i++) box(scene, [0.08, 0.9, 0.08], [-12.4 + i * 0.38, 1.55, -2.72], i % 2 ? 0xf2bd40 : 0xb7c4ca);
