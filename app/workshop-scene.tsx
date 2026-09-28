@@ -30,12 +30,127 @@ type Target = {
 const materialCache = new Map<string, THREE.MeshStandardMaterial>();
 const boxGeometryCache = new Map<string, THREE.BoxGeometry>();
 const cylinderGeometryCache = new Map<string, THREE.CylinderGeometry>();
+const textureCache = new Map<string, THREE.CanvasTexture>();
+
+type SurfaceTexture = "concrete" | "brushed-metal" | "rubber" | "paint";
 
 function material(color: number, roughness = 0.65, metalness = 0.05) {
   const key = `${color}:${roughness}:${metalness}`;
   let cached = materialCache.get(key);
   if (!cached) {
     cached = new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    materialCache.set(key, cached);
+  }
+  return cached;
+}
+
+function proceduralTexture(surface: SurfaceTexture, repeat: [number, number]) {
+  const key = `${surface}:${repeat.join(":")}`;
+  let cached = textureCache.get(key);
+  if (cached) return cached;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const context = canvas.getContext("2d")!;
+  const noise = (seed: number) => {
+    const value = Math.sin(seed * 12.9898) * 43758.5453;
+    return value - Math.floor(value);
+  };
+
+  if (surface === "concrete") {
+    context.fillStyle = "#aebbc0";
+    context.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 1100; i++) {
+      const alpha = 0.035 + noise(i * 3.1) * 0.09;
+      context.fillStyle = `rgba(42,58,65,${alpha})`;
+      const size = 1 + noise(i * 7.7) * 3;
+      context.fillRect(noise(i * 1.7) * 256, noise(i * 2.4) * 256, size, size);
+    }
+    context.strokeStyle = "rgba(245,250,250,.13)";
+    context.lineWidth = 1;
+    for (let i = 0; i < 15; i++) {
+      context.beginPath();
+      context.moveTo(noise(i * 4.6) * 256, noise(i * 5.8) * 256);
+      context.lineTo(noise(i * 8.2) * 256, noise(i * 9.1) * 256);
+      context.stroke();
+    }
+  } else if (surface === "brushed-metal") {
+    const gradient = context.createLinearGradient(0, 0, 256, 0);
+    gradient.addColorStop(0, "#667981");
+    gradient.addColorStop(0.5, "#a7b7bc");
+    gradient.addColorStop(1, "#52666f");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 180; i++) {
+      context.strokeStyle = `rgba(255,255,255,${0.04 + noise(i * 3.4) * 0.12})`;
+      context.lineWidth = 0.5 + noise(i * 4.9);
+      const y = noise(i * 1.8) * 256;
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(256, y + (noise(i * 6.2) - 0.5) * 5);
+      context.stroke();
+    }
+  } else if (surface === "rubber") {
+    context.fillStyle = "#111a21";
+    context.fillRect(0, 0, 256, 256);
+    context.strokeStyle = "rgba(141,158,165,.2)";
+    context.lineWidth = 5;
+    for (let i = -256; i < 512; i += 28) {
+      context.beginPath();
+      context.moveTo(i, 0);
+      context.lineTo(i + 120, 256);
+      context.stroke();
+    }
+    context.strokeStyle = "rgba(0,0,0,.35)";
+    context.lineWidth = 3;
+    for (let i = -256; i < 512; i += 28) {
+      context.beginPath();
+      context.moveTo(i + 10, 0);
+      context.lineTo(i + 130, 256);
+      context.stroke();
+    }
+  } else {
+    const gradient = context.createLinearGradient(0, 0, 256, 256);
+    gradient.addColorStop(0, "#f7fbfc");
+    gradient.addColorStop(0.45, "#dfe9ed");
+    gradient.addColorStop(1, "#b9ccd4");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 256, 256);
+    context.strokeStyle = "rgba(255,255,255,.32)";
+    context.lineWidth = 7;
+    context.beginPath();
+    context.moveTo(-20, 205);
+    context.lineTo(205, -20);
+    context.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(...repeat);
+  texture.anisotropy = 4;
+  textureCache.set(key, texture);
+  return texture;
+}
+
+function texturedMaterial(
+  color: number,
+  roughness: number,
+  metalness: number,
+  surface: SurfaceTexture,
+  repeat: [number, number] = [1, 1],
+) {
+  const key = `${color}:${roughness}:${metalness}:${surface}:${repeat.join(":")}`;
+  let cached = materialCache.get(key);
+  if (!cached) {
+    cached = new THREE.MeshStandardMaterial({
+      color,
+      map: proceduralTexture(surface, repeat),
+      roughness,
+      metalness,
+    });
     materialCache.set(key, cached);
   }
   return cached;
@@ -48,6 +163,7 @@ function box(
   color: number,
   roughness = 0.65,
   metalness = 0.05,
+  surface?: SurfaceTexture,
 ) {
   const geometryKey = size.join(":");
   let geometry = boxGeometryCache.get(geometryKey);
@@ -55,7 +171,7 @@ function box(
     geometry = new THREE.BoxGeometry(...size);
     boxGeometryCache.set(geometryKey, geometry);
   }
-  const mesh = new THREE.Mesh(geometry, material(color, roughness, metalness));
+  const mesh = new THREE.Mesh(geometry, surface ? texturedMaterial(color, roughness, metalness, surface) : material(color, roughness, metalness));
   mesh.position.set(...position);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -93,6 +209,7 @@ function extrudedProfile(
   roughness = 0.65,
   metalness = 0.05,
   bevel = 0.05,
+  surface?: SurfaceTexture,
 ): THREE.Mesh {
   const shape = new THREE.Shape();
   shape.moveTo(points[0][0], points[0][1]);
@@ -108,7 +225,7 @@ function extrudedProfile(
   });
   geometry.translate(0, 0, -depth / 2);
   geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(geometry, material(color, roughness, metalness));
+  const mesh = new THREE.Mesh(geometry, surface ? texturedMaterial(color, roughness, metalness, surface) : material(color, roughness, metalness));
   mesh.position.set(...position);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -123,8 +240,9 @@ function detailBox(
   color: number,
   roughness = 0.45,
   metalness = 0.25,
+  surface?: SurfaceTexture,
 ) {
-  const mesh = box(parent, size, position, color, roughness, metalness);
+  const mesh = box(parent, size, position, color, roughness, metalness, surface);
   mesh.userData.detail = true;
   return mesh;
 }
@@ -301,7 +419,7 @@ function makeAulaTpWorkshopShell(scene: THREE.Scene) {
   // Repeated panels establish a reusable Aula TP industrial architecture without changing the map.
   for (let i = 0; i < 7; i++) {
     const x = -14.4 + i * 4.8;
-    box(scene, [4.62, 1.28, 0.08], [x, 0.64, -10.2], graphite, 0.76, 0.12);
+    box(scene, [4.62, 1.28, 0.08], [x, 0.64, -10.2], graphite, 0.76, 0.12, "brushed-metal");
     box(scene, [4.62, 0.11, 0.1], [x, 1.34, -10.15], aulaBlue, 0.48, 0.2);
     box(scene, [0.08, 3.55, 0.11], [x + 2.35, 3.05, -10.13], seam, 0.68, 0.2);
   }
@@ -309,7 +427,7 @@ function makeAulaTpWorkshopShell(scene: THREE.Scene) {
     const x = side * 16.62;
     for (let i = 0; i < 5; i++) {
       const z = -8 + i * 4;
-      box(scene, [0.08, 1.28, 3.82], [x, 0.64, z], graphite, 0.76, 0.12);
+      box(scene, [0.08, 1.28, 3.82], [x, 0.64, z], graphite, 0.76, 0.12, "brushed-metal");
       box(scene, [0.1, 0.11, 3.82], [x - side * 0.05, 1.34, z], aulaBlue, 0.48, 0.2);
       box(scene, [0.11, 3.55, 0.08], [x - side * 0.04, 3.05, z + 1.96], seam, 0.68, 0.2);
     }
@@ -344,7 +462,7 @@ function makeCar(scene: THREE.Scene) {
     [-2.42, 0.06], [-2.48, 0.38], [-2.18, 0.62], [-1.55, 0.7],
     [-1.12, 1.02], [0.94, 1.04], [1.46, 0.73], [2.34, 0.64],
     [2.48, 0.38], [2.43, 0.06],
-  ], 2.08, [0, 0.48, 0], 0xe7eaed, 0.24, 0.58, 0.08);
+  ], 2.08, [0, 0.48, 0], 0xe7eaed, 0.24, 0.58, 0.08, "paint");
   detailBox(car, [4.72, 0.18, 2.14], [0, 0.48, 0], 0x172332, 0.28, 0.2);
   detailBox(car, [3.95, 0.055, 1.78], [-0.18, 0.71, 0], 0xd7dfe3, 0.3, 0.5);
 
@@ -359,7 +477,7 @@ function makeCar(scene: THREE.Scene) {
   detailBox(car, [0.06, 0.72, 1.9], [0.03, 1.45, 0], 0x152b39, 0.28, 0.5);
 
   // Hood, bumpers, grille and lights create a clear front end for the inspection task.
-  detailBox(car, [1.52, 0.12, 1.84], [1.82, 0.91, 0], bodyMat.color.getHex(), 0.24, 0.58).rotation.z = -0.06;
+  detailBox(car, [1.52, 0.12, 1.84], [1.82, 0.91, 0], bodyMat.color.getHex(), 0.24, 0.58, "paint").rotation.z = -0.06;
   detailBox(car, [0.24, 0.25, 1.72], [2.4, 0.57, 0], trimMat.color.getHex(), 0.25, 0.5);
   detailBox(car, [0.08, 0.25, 1.1], [2.53, 0.66, 0], 0x0b1c28, 0.22, 0.35);
   for (const z of [-0.42, -0.14, 0.14, 0.42]) detailBox(car, [0.06, 0.14, 0.18], [2.57, 0.67, z], 0x87a8b6, 0.22, 0.65);
@@ -394,7 +512,7 @@ function makeCar(scene: THREE.Scene) {
       wheel.position.set(x, 0.49, z);
       wheel.castShadow = true;
       car.add(wheel);
-      const tire = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.085, 10, 24), material(0x111a21, 0.82));
+      const tire = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.085, 10, 24), texturedMaterial(0x111a21, 0.86, 0.03, "rubber", [2, 2]));
       tire.position.copy(wheel.position);
       tire.castShadow = true;
       car.add(tire);
@@ -612,7 +730,7 @@ export default function WorkshopScene({
       box(scene, [3.2, 0.08, 0.34], [x, 6.48, -2], 0xf6fbff, 0.15, 0.2);
     }
 
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 25), material(0xb8c1c6, 0.78));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 25), texturedMaterial(0xb8c1c6, 0.86, 0.02, "concrete", [7, 5]));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
@@ -1066,6 +1184,7 @@ export default function WorkshopScene({
       materialCache.clear();
       boxGeometryCache.clear();
       cylinderGeometryCache.clear();
+      textureCache.clear();
     };
   }, []);
 
