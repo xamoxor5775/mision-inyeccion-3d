@@ -260,6 +260,7 @@ export default function HomePage() {
   const [navigation, setNavigation] = useState<{ label: string; distance: number; angle: number } | null>(null);
   const [pulse, setPulse] = useState(0);
   const [resetToken, setResetToken] = useState(0);
+  const [cameraResetToken, setCameraResetToken] = useState(0);
   const [reflection, setReflection] = useState("");
   const [measurementTask, setMeasurementTask] = useState<"compression" | "clearance" | null>(null);
   const [interpretationOpen, setInterpretationOpen] = useState(false);
@@ -619,6 +620,7 @@ export default function HomePage() {
     setInterpretationFeedback("");
     telemetryRef.current = [];
     setResetToken((value) => value + 1);
+    setCameraResetToken((value) => value + 1);
   };
 
   const touchKey = (code: string, down: boolean) => {
@@ -686,7 +688,7 @@ export default function HomePage() {
   const progressPercent = completed ? 100 : stageComplete ? stageComplete * 20 : Math.max(0, (step - 1) * 20);
 
   return (
-    <main className="app-shell">
+    <main className={missionStarted ? "app-shell mission-running" : "app-shell"}>
       <aside className="side-rail" aria-label="Navegación principal">
         <div className="brand-block">
           <div className="brand-mark" aria-hidden="true"><GraduationCap size={27} /><Wrench size={15} /></div>
@@ -711,6 +713,7 @@ export default function HomePage() {
           actionPulse={pulse}
           resetToken={resetToken}
           cameraSensitivity={cameraSensitivity}
+          cameraResetToken={cameraResetToken}
           reducedMotion={reducedMotion}
           onNearbyChange={setNearby}
           onNavigationChange={setNavigation}
@@ -739,7 +742,7 @@ export default function HomePage() {
                   <label className="entry-toggle"><input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} /><span>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}<b>Sonidos</b><small>Activa las señales de confirmación.</small></span></label>
                 </div>
                 <label className="sensitivity-control"><span><SlidersHorizontal size={18} /> Sensibilidad de cámara <b>{Math.round(cameraSensitivity * 100)}%</b></span><input type="range" min="0.5" max="1.3" step="0.1" value={cameraSensitivity} onChange={(event) => setCameraSensitivity(Number(event.target.value))} /></label>
-                <button type="button" className="entry-button" onClick={() => setEntryOpen(false)}><Play size={20} fill="currentColor" /> INGRESAR AL JUEGO <ChevronRight size={22} /></button>
+                <button type="button" className="entry-button" onClick={() => { setEntryOpen(false); startMission(); }}><Play size={20} fill="currentColor" /> COMENZAR MISIÓN <ChevronRight size={22} /></button>
                 <p className="entry-note"><CircleGauge size={14} /> Partida preparada · progreso automático</p>
               </div>
             </section>
@@ -770,18 +773,19 @@ export default function HomePage() {
               <Play size={22} fill="currentColor" /> INICIAR MISIÓN <ChevronRight size={24} />
             </button>
           </section>
-        ) : (
+        ) : !tutorialOpen ? (
           <section className="objective-card" aria-live="polite">
             <div className="objective-heading">
               <span>PASO {step}/5</span>
               <div className="objective-actions">
+                <button type="button" className="hint-button camera-button" onClick={() => setCameraResetToken((value) => value + 1)} aria-label="Centrar cámara"><RotateCcw size={15} /> Cámara</button>
                 <button type="button" className="hint-button" onClick={() => setObjectiveOpen(true)}><Target size={15} /> Objetivo</button>
                 <button type="button" className="hint-button" onClick={() => setHelpOpen(true)}><CircleHelp size={16} /> Ayuda</button>
               </div>
             </div>
             <span className={`guidance-mode ${step <= 2 ? "guided" : step === 3 ? "supported" : "independent"}`}>{stageGuides[step].mode}</span>
             <strong>{currentInstruction}</strong>
-            <p><b>Cómo:</b> {currentHow}</p>
+            {keepInstructions && <p><b>Cómo:</b> {currentHow}</p>}
             <div className="mission-route" aria-label={`Progreso: etapa ${step} de 5, ${progressPercent}% completado`}>
               {routeLabels.map((label, index) => {
                 const value = index + 1;
@@ -790,7 +794,7 @@ export default function HomePage() {
             </div>
             {step === 2 && preparationFilled && <button type="button" className="review-selection" onClick={() => setPreparationReviewOpen(true)}><ClipboardCheck size={16} /> Revisar selección</button>}
           </section>
-        )}
+        ) : null}
 
         {missionStarted && (
           <>
@@ -1093,7 +1097,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {missionStarted && (step <= 2 || keepInstructions) && <div className="desktop-controls"><Footprints size={15} /> WASD mover · Shift rápido · C/Ctrl agacharse · arrastrar para mirar · E interactuar · Esc pausa <MousePointer2 size={15} /></div>}
+        {missionStarted && (step <= 2 || keepInstructions) && <div className="desktop-controls"><Footprints size={15} /> WASD mover · Shift rápido · arrastrar para mirar · E interactuar · Esc pausa <MousePointer2 size={15} /></div>}
       </section>
     </main>
   );

@@ -12,6 +12,7 @@ type Props = {
   actionPulse: number;
   resetToken: number;
   cameraSensitivity: number;
+  cameraResetToken: number;
   reducedMotion: boolean;
   onNearbyChange: (id: string | null) => void;
   onNavigationChange: (info: { label: string; distance: number; angle: number } | null) => void;
@@ -423,17 +424,18 @@ export default function WorkshopScene({
   actionPulse,
   resetToken,
   cameraSensitivity,
+  cameraResetToken,
   reducedMotion,
   onNearbyChange,
   onNavigationChange,
   onTutorialAction,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, reducedMotion });
+  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, cameraResetToken, reducedMotion });
   const nearbyCallbackRef = useRef(onNearbyChange);
   const navigationCallbackRef = useRef(onNavigationChange);
   const tutorialCallbackRef = useRef(onTutorialAction);
-  stateRef.current = { active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, reducedMotion };
+  stateRef.current = { active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, cameraResetToken, reducedMotion };
   nearbyCallbackRef.current = onNearbyChange;
   navigationCallbackRef.current = onNavigationChange;
   tutorialCallbackRef.current = onTutorialAction;
@@ -656,6 +658,7 @@ export default function WorkshopScene({
     let lastPulse = actionPulse;
     let focusUntil = 0;
     let lastReset = resetToken;
+    let lastCameraReset = cameraResetToken;
     let moveReported = false;
     let lookReported = false;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -724,6 +727,11 @@ export default function WorkshopScene({
         orbitPitch = 0.24;
         moveReported = false;
         lookReported = false;
+      }
+      if (game.cameraResetToken !== lastCameraReset) {
+        lastCameraReset = game.cameraResetToken;
+        orbitYaw = avatar.rotation.y + Math.PI;
+        orbitPitch = 0.24;
       }
       if (game.actionPulse !== lastPulse) {
         lastPulse = game.actionPulse;
