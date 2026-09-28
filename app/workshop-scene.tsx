@@ -84,6 +84,51 @@ function cylinder(
   return mesh;
 }
 
+function extrudedProfile(
+  parent: THREE.Object3D,
+  points: Array<[number, number]>,
+  depth: number,
+  position: [number, number, number],
+  color: number,
+  roughness = 0.65,
+  metalness = 0.05,
+  bevel = 0.05,
+): THREE.Mesh {
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0][0], points[0][1]);
+  for (const [x, y] of points.slice(1)) shape.lineTo(x, y);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: bevel > 0,
+    bevelSegments: 2,
+    steps: 1,
+    bevelSize: bevel,
+    bevelThickness: bevel * 0.72,
+  });
+  geometry.translate(0, 0, -depth / 2);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material(color, roughness, metalness));
+  mesh.position.set(...position);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+function detailBox(
+  parent: THREE.Object3D,
+  size: [number, number, number],
+  position: [number, number, number],
+  color: number,
+  roughness = 0.45,
+  metalness = 0.25,
+) {
+  const mesh = box(parent, size, position, color, roughness, metalness);
+  mesh.userData.detail = true;
+  return mesh;
+}
+
 function createLabel(text: string, color = "#0d528e") {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -289,26 +334,57 @@ function makeCar(scene: THREE.Scene) {
   const car = new THREE.Group();
   const bodyMat = material(0xe7eaed, 0.24, 0.58);
   const darkMat = material(0x172332, 0.28, 0.2);
-  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x173c56, roughness: 0.08, metalness: 0.2, transmission: 0.15 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.76, 2.08), bodyMat);
-  body.position.y = 0.83;
-  body.castShadow = true;
-  car.add(body);
-  const lower = new THREE.Mesh(new THREE.BoxGeometry(4.9, 0.22, 2.14), darkMat);
-  lower.position.y = 0.5;
-  car.add(lower);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.82, 1.78), glassMat);
-  cabin.position.set(-0.35, 1.5, 0);
-  cabin.castShadow = true;
-  car.add(cabin);
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.13, 1.95), bodyMat);
-  hood.position.set(2.62, 1.82, 0);
-  hood.rotation.z = -0.59;
-  car.add(hood);
+  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x173c56, roughness: 0.08, metalness: 0.2, transmission: 0.15, clearcoat: 0.55 });
+  const trimMat = material(0x263944, 0.28, 0.62);
+  const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff4c2, emissive: 0xffbf48, emissiveIntensity: 0.55, roughness: 0.22, metalness: 0.1 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0xd83d48, emissive: 0x7c111d, emissiveIntensity: 0.45, roughness: 0.3 });
+
+  // A shaped body gives the mission vehicle a readable automotive silhouette instead of a stack of boxes.
+  extrudedProfile(car, [
+    [-2.42, 0.06], [-2.48, 0.38], [-2.18, 0.62], [-1.55, 0.7],
+    [-1.12, 1.02], [0.94, 1.04], [1.46, 0.73], [2.34, 0.64],
+    [2.48, 0.38], [2.43, 0.06],
+  ], 2.08, [0, 0.48, 0], 0xe7eaed, 0.24, 0.58, 0.08);
+  detailBox(car, [4.72, 0.18, 2.14], [0, 0.48, 0], 0x172332, 0.28, 0.2);
+  detailBox(car, [3.95, 0.055, 1.78], [-0.18, 0.71, 0], 0xd7dfe3, 0.3, 0.5);
+
+  const cabin = extrudedProfile(car, [
+    [-1.42, 0], [-1.08, 0.73], [-0.72, 0.94], [0.83, 0.94],
+    [1.2, 0.68], [1.33, 0],
+  ], 1.78, [-0.18, 1.03, 0], glassMat.color.getHex(), 0.08, 0.2, 0.04);
+  cabin.material = glassMat;
+  detailBox(car, [0.08, 0.88, 1.86], [-0.2, 1.44, 0], 0x152d40, 0.25, 0.4);
+  detailBox(car, [1.6, 0.055, 1.62], [0.55, 1.44, 0], 0x2c6077, 0.08, 0.2);
+  detailBox(car, [1.62, 0.055, 1.62], [-0.94, 1.44, 0], 0x234c63, 0.08, 0.2);
+  detailBox(car, [0.06, 0.72, 1.9], [0.03, 1.45, 0], 0x152b39, 0.28, 0.5);
+
+  // Hood, bumpers, grille and lights create a clear front end for the inspection task.
+  detailBox(car, [1.52, 0.12, 1.84], [1.82, 0.91, 0], bodyMat.color.getHex(), 0.24, 0.58).rotation.z = -0.06;
+  detailBox(car, [0.24, 0.25, 1.72], [2.4, 0.57, 0], trimMat.color.getHex(), 0.25, 0.5);
+  detailBox(car, [0.08, 0.25, 1.1], [2.53, 0.66, 0], 0x0b1c28, 0.22, 0.35);
+  for (const z of [-0.42, -0.14, 0.14, 0.42]) detailBox(car, [0.06, 0.14, 0.18], [2.57, 0.67, z], 0x87a8b6, 0.22, 0.65);
+  for (const z of [-0.72, 0.72]) detailBox(car, [0.08, 0.18, 0.38], [2.48, 0.9, z], lightMat.color.getHex(), 0.2, 0.18);
+  for (const z of [-0.74, 0.74]) detailBox(car, [0.08, 0.2, 0.3], [-2.42, 0.82, z], tailMat.color.getHex(), 0.3, 0.12);
+  for (const z of [-1.08, 1.08]) {
+    detailBox(car, [0.36, 0.12, 0.08], [-0.3, 1.98, z], trimMat.color.getHex(), 0.3, 0.6);
+    detailBox(car, [0.28, 0.07, 0.09], [-0.3, 1.94, z], 0x2d8bb3, 0.18, 0.35);
+  }
+  for (const x of [-0.75, 0.68]) for (const z of [-0.91, 0.91]) detailBox(car, [0.18, 0.045, 0.05], [x, 1.02, z], 0xd9b24e, 0.3, 0.45);
   const engine = new THREE.Group();
-  box(engine, [1.5, 0.35, 1.35], [0, 0, 0], 0x303942, 0.55, 0.25);
-  box(engine, [0.72, 0.23, 0.7], [0.05, 0.28, 0.1], 0x17202a, 0.45, 0.3);
-  for (let i = 0; i < 4; i++) cylinder(engine, 0.075, 0.75, [-0.25 + i * 0.18, 0.27, -0.3], 0xc4483f, 12).rotation.z = Math.PI / 2;
+  detailBox(engine, [1.5, 0.35, 1.35], [0, 0, 0], 0x303942, 0.55, 0.25);
+  detailBox(engine, [0.78, 0.23, 0.72], [0.05, 0.28, 0.1], 0x17202a, 0.45, 0.3);
+  detailBox(engine, [0.92, 0.12, 0.52], [0.02, 0.47, 0.08], 0x68777d, 0.28, 0.6);
+  for (let i = 0; i < 4; i++) {
+    cylinder(engine, 0.075, 0.75, [-0.25 + i * 0.18, 0.27, -0.3], 0xc4483f, 12).rotation.z = Math.PI / 2;
+    cylinder(engine, 0.045, 0.52, [-0.25 + i * 0.18, 0.59, 0.22], 0xe0ad3e, 10).rotation.z = Math.PI / 2;
+  }
+  cylinder(engine, 0.12, 0.56, [0.52, 0.25, 0.36], 0x273b46, 16).rotation.z = Math.PI / 2;
+  for (const z of [-0.47, 0.47]) {
+    const hose = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.035, 8, 18, Math.PI * 1.35), material(0x1d252b, 0.75));
+    hose.position.set(-0.52, 0.3, z);
+    hose.rotation.y = Math.PI / 2;
+    engine.add(hose);
+  }
   engine.position.set(1.65, 1.22, 0);
   car.add(engine);
   for (const x of [-1.55, 1.55]) {
@@ -318,10 +394,26 @@ function makeCar(scene: THREE.Scene) {
       wheel.position.set(x, 0.49, z);
       wheel.castShadow = true;
       car.add(wheel);
+      const tire = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.085, 10, 24), material(0x111a21, 0.82));
+      tire.position.copy(wheel.position);
+      tire.castShadow = true;
+      car.add(tire);
       const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.31, 18), material(0xb9c3ca, 0.22, 0.75));
       hub.rotation.x = Math.PI / 2;
       hub.position.copy(wheel.position);
       car.add(hub);
+      const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.035, 24), material(0x9da9af, 0.3, 0.72));
+      brake.rotation.x = Math.PI / 2;
+      brake.position.set(x, 0.49, z + (z > 0 ? 0.17 : -0.17));
+      car.add(brake);
+      detailBox(car, [0.08, 0.18, 0.055], [x, 0.49, z + (z > 0 ? 0.2 : -0.2)], 0xd24b42, 0.38, 0.22);
+      for (let spoke = 0; spoke < 5; spoke++) {
+        const lug = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.34, 8), material(0xd9e0e2, 0.2, 0.8));
+        lug.rotation.x = Math.PI / 2;
+        lug.rotation.z = spoke * (Math.PI * 2 / 5);
+        lug.position.set(x, 0.49, z + (z > 0 ? 0.2 : -0.2));
+        car.add(lug);
+      }
     }
   }
   const statusLight = new THREE.PointLight(0xe44848, 0.9, 2.8);
