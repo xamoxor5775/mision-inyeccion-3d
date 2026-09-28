@@ -240,6 +240,15 @@ kbd { display: inline-block; padding: 2px 5px; margin: 0 2px; color: #fff; backg
 .guide-why { margin: 13px 2px; }
 .guide-why strong { color: var(--ink); }
 .guide-start { width: 100%; min-height: 48px; margin-top: 9px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 7px; font-weight: 900; cursor: pointer; }
+.procedure-dialog, .interpretation-dialog { width: min(570px, 100%); }
+.procedure-steps { display: grid; gap: 7px; margin: 16px 0; padding: 0; list-style: none; }
+.procedure-steps li { display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 9px; padding: 9px 11px; color: #365a73; background: #eaf3f7; border: 1px solid #d0e2e9; border-radius: 6px; font-size: 12px; line-height: 1.35; }
+.procedure-steps li span { width: 27px; height: 27px; display: grid; place-items: center; color: #fff; background: #187fa7; border-radius: 50%; font-weight: 900; }
+.evidence-comparison { display: grid; gap: 5px; margin: 13px 0; padding: 11px; color: #315c78; background: #e7f2f7; border-left: 4px solid #298eb4; border-radius: 6px; font-size: 12px; font-weight: 800; }
+.interpretation-options { display: grid; gap: 7px; }
+.interpretation-options button { min-height: 46px; padding: 9px 12px; border: 1px solid #c6dce6; border-radius: 6px; color: #214e6c; background: #fff; cursor: pointer; text-align: left; font-size: 12px; line-height: 1.35; }
+.interpretation-options button:hover { border-color: #258aad; background: #e9f6fa; }
+.interpretation-feedback { display: flex; align-items: flex-start; gap: 7px; margin: 10px 0 0; padding: 10px; color: #855a15; background: #fff3d7; border-radius: 6px; font-size: 12px; line-height: 1.4; }
 .compact-dialog { width: min(500px, 100%); text-align: left; }
 .compact-dialog .item-icon, .decision-dialog .item-icon { margin: 0 auto 12px; }
 .compact-dialog > .dialog-eyebrow, .compact-dialog > h2, .compact-dialog > p, .decision-dialog { text-align: center; }
@@ -319,7 +328,7 @@ kbd { display: inline-block; padding: 2px 5px; margin: 0 2px; color: #fff; backg
   .zone-tag { display: none; }
   .mission-card { top: 76px; right: 10px; left: 10px; width: auto; }
   .mission-card p { font-size: 14px; }
-  .objective-card { top: 75px; left: 10px; right: 10px; width: auto; gap: 6px; padding: 11px 13px; }
+  .objective-card { top: 70px; left: 8px; right: 8px; width: auto; gap: 4px; padding: 8px 10px; }
   .objective-card > strong { font-size: 14px; }
   .objective-card p { font-size: 11px; }
   .hint-button { padding: 0 7px; font-size: 10px; }
@@ -362,5 +371,10 @@ kbd { display: inline-block; padding: 2px 5px; margin: 0 2px; color: #fff; backg
   .entry-setup { padding: 18px; }
   .entry-options { grid-template-columns: 1fr; }
   .entry-toggle { min-height: 64px; }
-  .practice-tutorial { top: 145px; left: 10px; right: 10px; width: auto; min-width: 0; transform: none; }
+  .practice-tutorial { top: auto; right: auto; bottom: 244px; left: 10px; width: min(240px, calc(100% - 20px)); min-width: 0; transform: none; padding: 9px 10px; }
+  .practice-tutorial h2 { font-size: 14px; }
+  .practice-tutorial p { font-size: 10px; }
+  .tutorial-checks span { min-height: 26px; padding: 0 7px; font-size: 10px; }
+  .procedure-dialog, .interpretation-dialog { padding: 16px; }
+  .procedure-steps li { font-size: 11px; }
 }

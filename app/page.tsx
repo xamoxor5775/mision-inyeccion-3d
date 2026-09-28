@@ -160,9 +160,9 @@ const stageGuides: Record<number, StageGuide> = {
     mode: "PRÁCTICA CON APOYO",
     time: "3:00–6:00",
     title: "Construye el diagnóstico",
-    brief: "Reúne tres evidencias y relaciónalas: información del sistema, especificación técnica y medición real.",
+    brief: "Reúne tres evidencias y relaciónalas: especificación del fabricante, compresión y holgura de válvulas.",
     how: "Recorre el taller y utiliza la documentación y los instrumentos que preparaste. Tú eliges el orden.",
-    why: "Una conclusión técnica válida debe comparar datos reales con especificaciones y códigos de diagnóstico.",
+    why: "Una conclusión técnica válida debe comparar las mediciones reales con las especificaciones del fabricante.",
     completed: "Relacionaste la especificación del fabricante con la compresión y la holgura medidas.",
     next: "Decidir e intervenir",
   },
@@ -261,6 +261,9 @@ export default function HomePage() {
   const [pulse, setPulse] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const [reflection, setReflection] = useState("");
+  const [measurementTask, setMeasurementTask] = useState<"compression" | "clearance" | null>(null);
+  const [interpretationOpen, setInterpretationOpen] = useState(false);
+  const [interpretationFeedback, setInterpretationFeedback] = useState("");
   const [toast, setToast] = useState<{ title: string; body: string; tone: Tone } | null>(null);
   const telemetryRef = useRef<GameEvent[]>([]);
   const startedAtRef = useRef(0);
@@ -316,6 +319,7 @@ export default function HomePage() {
   useEffect(() => {
     if (step === 0 || completed) return;
     const timer = window.setInterval(() => {
+      if (startedAtRef.current === 0) return;
       setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
       const idle = (Date.now() - lastProgressRef.current) / 1000;
       const thresholds = structuredSupport
@@ -334,30 +338,30 @@ export default function HomePage() {
 
   useEffect(() => {
     if (step === 1 && checks.npc && checks.vehicle && stageComplete !== 1) {
-      setStageComplete(1);
-      showMessage("Etapa completada", "Comprendiste la situación antes de intervenir.", "success");
-      record("step_1_complete", "logrado", "contexto_completo");
+      const timer = window.setTimeout(() => {
+        setStageComplete(1);
+        record("step_1_complete", "logrado", "contexto_completo");
+      }, 5000);
+      return () => window.clearTimeout(timer);
     }
-  }, [checks, record, showMessage, stageComplete, step]);
+  }, [checks, record, stageComplete, step]);
 
   useEffect(() => {
-    if (step === 3 && evidence.length === 3 && stageComplete !== 3) {
-      setStageComplete(3);
-      showMessage("Etapa completada", "Ya puedes justificar una decisión técnica con evidencia.", "success");
-      record("step_3_complete", "logrado", evidence.join(","));
+    if (step === 3 && evidence.length === 3 && stageComplete !== 3 && !interpretationOpen) {
+      setInterpretationOpen(true);
     }
-  }, [evidence, record, showMessage, stageComplete, step]);
+  }, [evidence.length, interpretationOpen, stageComplete, step]);
 
   useEffect(() => {
     if (step === 4 && repaired && stageComplete !== 4) {
       setStageComplete(4);
-      showMessage("Etapa completada", "La intervención coincide con la evidencia reunida.", "success");
       record("step_4_complete", "logrado", "holgura_valvulas_ajustada");
     }
-  }, [record, repaired, showMessage, stageComplete, step]);
+  }, [record, repaired, stageComplete, step]);
 
   const startMission = () => {
-    startedAtRef.current = Date.now();
+    startedAtRef.current = 0;
+    setElapsed(0);
     lastProgressRef.current = Date.now();
     setStep(1);
     setTutorialProgress({ move: false, look: false });
@@ -374,6 +378,33 @@ export default function HomePage() {
     playSound("beep");
     record(`evidence_${id}`, "descubierta", id);
   }, [markProgress, playSound, record, showMessage]);
+
+  const completeMeasurement = () => {
+    if (measurementTask === "compression") {
+      addEvidence("compression", "Evidencia 2 · Prueba de compresión", "Cilindros 1–3: 10,7–10,9 bar. Cilindro 4: 7,2 bar, bajo el mínimo del fabricante.");
+      record("procedure_compression", "secuencia_aplicada", "motor_preparado_y_medicion_registrada");
+    }
+    if (measurementTask === "clearance") {
+      addEvidence("clearance", "Evidencia 3 · Medición de holgura", "Válvula de admisión del cilindro 4: 0,05 mm. La holgura es insuficiente.");
+      record("procedure_clearance", "secuencia_aplicada", "motor_frio_pms_y_medicion_registrada");
+    }
+    setMeasurementTask(null);
+  };
+
+  const answerInterpretation = (correct: boolean) => {
+    if (!correct) {
+      setMistakes((value) => value + 1);
+      setInterpretationFeedback("Esa conclusión no explica simultáneamente la compresión baja y la holgura de 0,05 mm. Compara nuevamente ambos valores con el manual.");
+      record("evidence_interpretation", "requiere_revision", "relacion_incompleta");
+      return;
+    }
+    setInterpretationFeedback("");
+    setInterpretationOpen(false);
+    setStageComplete(3);
+    markProgress();
+    showMessage("Conclusión fundamentada", "La holgura insuficiente puede impedir el cierre completo de la válvula y reducir la compresión del cilindro 4.", "success");
+    record("step_3_complete", "logrado", evidence.join(","));
+  };
 
   const applyDecision = useCallback((id: string) => {
     setPendingDecision(null);
@@ -425,9 +456,9 @@ export default function HomePage() {
       if (id === "manual") {
         addEvidence("manual", "Evidencia 1 · Manual de servicio", "Compresión mínima: 10 bar. Holgura de admisión en frío: 0,20 ± 0,03 mm.");
       } else if (id === "compression_test") {
-        addEvidence("compression", "Evidencia 2 · Prueba de compresión", "Cilindros 1–3: 10,7–10,9 bar. Cilindro 4: 7,2 bar, bajo el mínimo del fabricante.");
+        setMeasurementTask("compression");
       } else if (id === "valve_clearance") {
-        addEvidence("clearance", "Evidencia 3 · Medición de holgura", "Válvula de admisión del cilindro 4: 0,05 mm. La holgura es insuficiente.");
+        setMeasurementTask("clearance");
       }
       return;
     }
@@ -473,11 +504,11 @@ export default function HomePage() {
         setHelpOpen(true);
         return;
       }
-      if (event.code === "KeyE" && !event.repeat && nearby && !paused && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause) handleInteract(nearby);
+      if (event.code === "KeyE" && !event.repeat && nearby && !paused && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && !measurementTask && !interpretationOpen) handleInteract(nearby);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [analysisPause, briefingOpen, completed, handleInteract, helpOpen, inspection, nearby, objectiveOpen, paused, pendingDecision, preparationReviewOpen, stageComplete, step]);
+  }, [analysisPause, briefingOpen, completed, handleInteract, helpOpen, inspection, interpretationOpen, measurementTask, nearby, objectiveOpen, paused, pendingDecision, preparationReviewOpen, stageComplete, step]);
 
   const chooseItem = (take: boolean) => {
     if (!inspection) return;
@@ -520,7 +551,7 @@ export default function HomePage() {
     if (safe && diagnosticSet) {
       setStageComplete(2);
       markProgress();
-      showMessage("Preparación verificada", "El conjunto permite protegerte, leer el sistema y medir señales.", "success");
+      showMessage("Preparación verificada", "El conjunto permite protegerte y medir compresión y holgura de válvulas.", "success");
       record("step_2_complete", "logrado", "seleccion_confirmada");
       return;
     }
@@ -553,6 +584,7 @@ export default function HomePage() {
   };
 
   const restart = () => {
+    startedAtRef.current = 0;
     setStep(0);
     setElapsed(0);
     setChecks({ npc: false, vehicle: false });
@@ -582,6 +614,9 @@ export default function HomePage() {
     setTutorialProgress({ move: false, look: false });
     setNavigation(null);
     setReflection("");
+    setMeasurementTask(null);
+    setInterpretationOpen(false);
+    setInterpretationFeedback("");
     telemetryRef.current = [];
     setResetToken((value) => value + 1);
   };
@@ -648,6 +683,7 @@ export default function HomePage() {
     engineRunning ? "ignition" : "",
   ].filter(Boolean), [checks.npc, checks.vehicle, engineRunning, epp, evidence, repaired, tools]);
   const preparationFilled = epp.length === 2 && tools.length === 2;
+  const progressPercent = completed ? 100 : stageComplete ? stageComplete * 20 : Math.max(0, (step - 1) * 20);
 
   return (
     <main className="app-shell">
@@ -667,7 +703,7 @@ export default function HomePage() {
 
       <section className="game-stage">
         <WorkshopScene
-          active={missionStarted && !paused && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause}
+          active={missionStarted && !paused && !completed && !inspection && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && !measurementTask && !interpretationOpen}
           currentStep={step}
           helpLevel={helpLevel}
           engineRunning={engineRunning}
@@ -745,7 +781,7 @@ export default function HomePage() {
             <span className={`guidance-mode ${step <= 2 ? "guided" : step === 3 ? "supported" : "independent"}`}>{stageGuides[step].mode}</span>
             <strong>{currentInstruction}</strong>
             <p><b>Cómo:</b> {currentHow}</p>
-            <div className="mission-route" aria-label={`Progreso: etapa ${step} de 5, ${step * 20}% completado`}>
+            <div className="mission-route" aria-label={`Progreso: etapa ${step} de 5, ${progressPercent}% completado`}>
               {routeLabels.map((label, index) => {
                 const value = index + 1;
                 return <span key={label} className={value < step ? "done" : value === step ? "current" : ""} title={label}>{value < step ? <Check size={12} /> : value}<small>{label}</small></span>;
@@ -785,7 +821,7 @@ export default function HomePage() {
           </section>
         )}
 
-        {missionStarted && nearby && !paused && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && (
+        {missionStarted && nearby && !paused && !inspection && !completed && !briefingOpen && !stageComplete && !helpOpen && !objectiveOpen && !pendingDecision && !preparationReviewOpen && !analysisPause && !measurementTask && !interpretationOpen && (
           <button type="button" className="interaction-prompt" onClick={() => handleInteract(nearby)}>
             <kbd>E</kbd><span>{targetLabels[nearby]}</span>
           </button>
@@ -806,7 +842,7 @@ export default function HomePage() {
 
         <div className="status-ribbon">
           <div><Target size={17} /><span>MISIÓN</span><strong>Recuperar la compresión</strong></div>
-          <div><Map size={17} /><span>PROGRESO</span><strong>{step}/5 · {step * 20}% · {stepNames[step]}</strong></div>
+          <div><Map size={17} /><span>PROGRESO</span><strong>{step}/5 · {progressPercent}% · {stepNames[step]}</strong></div>
           <div><Microscope size={17} /><span>EVIDENCIAS</span><strong>{evidence.length}/3</strong></div>
           <div><Clock3 size={17} /><span>TIEMPO</span><strong>{formatTime(elapsed)}</strong></div>
         </div>
@@ -821,6 +857,7 @@ export default function HomePage() {
               <p className="guide-why"><strong>¿Por qué?</strong> {stageGuides[step].why}</p>
               <button type="button" className="primary-action guide-start" onClick={() => {
                 setBriefingOpen(false);
+                if (step === 1 && startedAtRef.current === 0) startedAtRef.current = Date.now();
                 markProgress();
                 record(`step_${step}_instruction_acknowledged`, "comprendida", stageGuides[step].mode);
               }}>{step <= 2 ? "ENTENDIDO, COMENZAR" : "COMENZAR ETAPA"}<ChevronRight size={19} /></button>
@@ -933,6 +970,49 @@ export default function HomePage() {
               <p className="guide-why"><strong>¿Por qué era importante?</strong> {stageGuides[stageComplete].why}</p>
               <div className="next-stage"><span>SIGUIENTE ETAPA</span><strong>{stageGuides[stageComplete].next}</strong></div>
               <button type="button" className="primary-action guide-start" onClick={continueToNextStage}>CONTINUAR MISIÓN <ChevronRight size={19} /></button>
+            </section>
+          </div>
+        )}
+
+        {measurementTask && (
+          <div className="modal-backdrop pedagogical-backdrop">
+            <section className="guide-dialog procedure-dialog" role="dialog" aria-modal="true" aria-labelledby="procedure-title">
+              <span className="dialog-eyebrow">PROCEDIMIENTO TÉCNICO</span>
+              <h2 id="procedure-title">{measurementTask === "compression" ? "Realiza la prueba de compresión" : "Mide la holgura de válvulas"}</h2>
+              <p>Antes de obtener el valor, comprueba la secuencia que aplicarías en un contexto real.</p>
+              <ol className="procedure-steps">
+                {(measurementTask === "compression" ? [
+                  "Aplica el EPP y confirma que el vehículo esté inmovilizado.",
+                  "Deshabilita encendido y alimentación; retira las bujías.",
+                  "Instala el compresímetro y realiza la prueba bajo la misma condición en cada cilindro.",
+                  "Registra y compara los valores con el manual.",
+                ] : [
+                  "Confirma que el motor esté frío y consulta la especificación.",
+                  "Posiciona el cilindro 4 en PMS de compresión.",
+                  "Selecciona la galga correspondiente sin forzarla.",
+                  "Registra la holgura y compárala con el rango del fabricante.",
+                ]).map((item, index) => <li key={item}><span>{index + 1}</span>{item}</li>)}
+              </ol>
+              <div className="dialog-actions">
+                <button type="button" className="secondary-action" onClick={() => setMeasurementTask(null)}>Volver</button>
+                <button type="button" className="primary-action" onClick={completeMeasurement}>Aplicar procedimiento y medir</button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {interpretationOpen && (
+          <div className="modal-backdrop pedagogical-backdrop">
+            <section className="guide-dialog interpretation-dialog" role="dialog" aria-modal="true" aria-labelledby="interpretation-title">
+              <span className="dialog-eyebrow">INTERPRETA LA EVIDENCIA</span>
+              <h2 id="interpretation-title">¿Qué conclusión está mejor respaldada?</h2>
+              <div className="evidence-comparison"><span>Manual: mínimo 10 bar · admisión 0,20 ± 0,03 mm</span><span>Cilindro 4: 7,2 bar · admisión 0,05 mm</span></div>
+              <div className="interpretation-options">
+                <button type="button" onClick={() => answerInterpretation(false)}>Los inyectores explican necesariamente la pérdida de compresión.</button>
+                <button type="button" onClick={() => answerInterpretation(true)}>La holgura insuficiente puede impedir el cierre de la válvula y reducir la compresión.</button>
+                <button type="button" onClick={() => answerInterpretation(false)}>Debe desmontarse la culata antes de comprobar cualquier ajuste.</button>
+              </div>
+              {interpretationFeedback && <p className="interpretation-feedback"><AlertTriangle size={17} />{interpretationFeedback}</p>}
             </section>
           </div>
         )}

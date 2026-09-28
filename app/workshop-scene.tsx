@@ -20,6 +20,7 @@ type Props = {
 
 type Target = {
   id: string;
+  label: string;
   root: THREE.Group;
   marker: THREE.Mesh;
   steps: number[];
@@ -409,7 +410,7 @@ function addTarget(targets: Target[], id: string, position: [number, number, num
   labelSprite.position.y = 2.65;
   labelSprite.userData.label = true;
   root.add(labelSprite);
-  targets.push({ id, root, marker, steps });
+  targets.push({ id, label, root, marker, steps });
   return root;
 }
 
@@ -808,8 +809,24 @@ export default function WorkshopScene({
       }
 
       let destination: { label: string; x: number; z: number } | null = null;
-      if (game.currentStep === 1) destination = { label: "Bahía de diagnóstico", x: -0.8, z: -0.8 };
-      if (game.currentStep === 2) destination = { label: "Zona de preparación", x: -9.4, z: -4.8 };
+      if (game.currentStep === 1) {
+        const pending = targets.filter((target) => target.steps.includes(1) && !game.completedTargets.includes(target.id));
+        const closest = pending.sort((a, b) => {
+          const distanceA = Math.hypot(avatar.position.x - a.root.position.x, avatar.position.z - a.root.position.z);
+          const distanceB = Math.hypot(avatar.position.x - b.root.position.x, avatar.position.z - b.root.position.z);
+          return distanceA - distanceB;
+        })[0];
+        if (closest) destination = { label: closest.label, x: closest.root.position.x, z: closest.root.position.z };
+      }
+      if (game.currentStep === 2) {
+        const pending = targets.filter((target) => target.steps.includes(2) && !game.completedTargets.includes(target.id));
+        const closest = pending.sort((a, b) => {
+          const distanceA = Math.hypot(avatar.position.x - a.root.position.x, avatar.position.z - a.root.position.z);
+          const distanceB = Math.hypot(avatar.position.x - b.root.position.x, avatar.position.z - b.root.position.z);
+          return distanceA - distanceB;
+        })[0];
+        if (closest) destination = { label: closest.label, x: closest.root.position.x, z: closest.root.position.z };
+      }
       if (game.currentStep === 3) {
         const remaining = targets.filter((target) => target.steps.includes(3) && !game.completedTargets.includes(target.id));
         const closest = remaining.sort((a, b) => {
