@@ -11,8 +11,11 @@ type Props = {
   completedTargets: string[];
   actionPulse: number;
   resetToken: number;
+  cameraSensitivity: number;
+  reducedMotion: boolean;
   onNearbyChange: (id: string | null) => void;
   onNavigationChange: (info: { label: string; distance: number; angle: number } | null) => void;
+  onTutorialAction: (action: "move" | "look") => void;
 };
 
 type Target = {
@@ -324,16 +327,21 @@ export default function WorkshopScene({
   completedTargets,
   actionPulse,
   resetToken,
+  cameraSensitivity,
+  reducedMotion,
   onNearbyChange,
   onNavigationChange,
+  onTutorialAction,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken });
+  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, reducedMotion });
   const nearbyCallbackRef = useRef(onNearbyChange);
   const navigationCallbackRef = useRef(onNavigationChange);
-  stateRef.current = { active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken };
+  const tutorialCallbackRef = useRef(onTutorialAction);
+  stateRef.current = { active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, reducedMotion };
   nearbyCallbackRef.current = onNearbyChange;
   navigationCallbackRef.current = onNavigationChange;
+  tutorialCallbackRef.current = onTutorialAction;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -538,7 +546,15 @@ export default function WorkshopScene({
     let lastPulse = actionPulse;
     let focusUntil = 0;
     let lastReset = resetToken;
-    const onKeyDown = (event: KeyboardEvent) => keys.add(event.code);
+    let moveReported = false;
+    let lookReported = false;
+    const onKeyDown = (event: KeyboardEvent) => {
+      keys.add(event.code);
+      if (!moveReported && ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].includes(event.code)) {
+        moveReported = true;
+        tutorialCallbackRef.current("move");
+      }
+    };
     const onKeyUp = (event: KeyboardEvent) => keys.delete(event.code);
     const onPointerDown = (event: PointerEvent) => {
       dragging = true;
@@ -548,8 +564,13 @@ export default function WorkshopScene({
     };
     const onPointerMove = (event: PointerEvent) => {
       if (!dragging) return;
-      orbitYaw -= (event.clientX - lastX) * 0.006;
-      orbitPitch = THREE.MathUtils.clamp(orbitPitch + (event.clientY - lastY) * 0.004, -0.12, 0.58);
+      const sensitivity = stateRef.current.cameraSensitivity;
+      orbitYaw -= (event.clientX - lastX) * 0.006 * sensitivity;
+      orbitPitch = THREE.MathUtils.clamp(orbitPitch + (event.clientY - lastY) * 0.004 * sensitivity, -0.12, 0.58);
+      if (!lookReported && Math.abs(event.clientX - lastX) + Math.abs(event.clientY - lastY) > 3) {
+        lookReported = true;
+        tutorialCallbackRef.current("look");
+      }
       lastX = event.clientX;
       lastY = event.clientY;
     };
@@ -591,6 +612,8 @@ export default function WorkshopScene({
         avatar.position.set(-1.6, 0, 5.8);
         orbitYaw = -0.38;
         orbitPitch = 0.24;
+        moveReported = false;
+        lookReported = false;
       }
       if (game.actionPulse !== lastPulse) {
         lastPulse = game.actionPulse;
@@ -608,6 +631,10 @@ export default function WorkshopScene({
         if (keys.has("KeyD") || keys.has("ArrowRight")) direction.add(right);
         if (direction.lengthSq() > 0) {
           moving = true;
+          if (!moveReported) {
+            moveReported = true;
+            tutorialCallbackRef.current("move");
+          }
           direction.normalize();
           const speed = keys.has("ShiftLeft") || keys.has("ShiftRight") ? 5.3 : 3.15;
           const responsiveness = keys.has("ShiftLeft") || keys.has("ShiftRight") ? 7.2 : 9.5;
@@ -631,14 +658,14 @@ export default function WorkshopScene({
       }
       const crouching = keys.has("KeyC") || keys.has("ControlLeft") || keys.has("ControlRight");
       avatar.scale.y = THREE.MathUtils.lerp(avatar.scale.y, crouching ? 0.72 : 1, 1 - Math.pow(0.005, dt));
-      const stride = moving ? Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9)) * 0.58 : Math.sin(time * 2) * 0.025;
+      const stride = game.reducedMotion ? 0 : moving ? Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9)) * 0.58 : Math.sin(time * 2) * 0.025;
       arms[0].rotation.x = stride;
       arms[1].rotation.x = -stride;
       legs[0].rotation.x = -stride;
       legs[1].rotation.x = stride;
       if (performance.now() < focusUntil) arms[1].rotation.x = -1.15;
-      npc.rotation.y = Math.sin(time * 0.5) * 0.08 + 0.4;
-      npcArm.rotation.z = -0.3 + Math.sin(time * 1.7) * 0.09;
+      npc.rotation.y = game.reducedMotion ? 0.4 : Math.sin(time * 0.5) * 0.08 + 0.4;
+      npcArm.rotation.z = game.reducedMotion ? -0.3 : -0.3 + Math.sin(time * 1.7) * 0.09;
 
       let nearest: Target | null = null;
       let nearestDistance = 1.65;

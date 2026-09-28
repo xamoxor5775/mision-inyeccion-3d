@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  Accessibility,
   Award,
   Backpack,
   Check,
@@ -14,6 +15,7 @@ import {
   CircleGauge,
   ClipboardCheck,
   Clock3,
+  Eye,
   Footprints,
   Gamepad2,
   Gauge,
@@ -29,9 +31,11 @@ import {
   RotateCcw,
   ScanLine,
   Settings,
+  SlidersHorizontal,
   ShieldCheck,
   Target,
   Volume2,
+  VolumeX,
   Wrench,
   X,
 } from "lucide-react";
@@ -245,6 +249,14 @@ export default function HomePage() {
   const [preparationReviewOpen, setPreparationReviewOpen] = useState(false);
   const [analysisPause, setAnalysisPause] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [entryOpen, setEntryOpen] = useState(true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialProgress, setTutorialProgress] = useState({ move: false, look: false });
+  const [structuredSupport, setStructuredSupport] = useState(true);
+  const [keepInstructions, setKeepInstructions] = useState(true);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [cameraSensitivity, setCameraSensitivity] = useState(0.8);
   const [navigation, setNavigation] = useState<{ label: string; distance: number; angle: number } | null>(null);
   const [pulse, setPulse] = useState(0);
   const [resetToken, setResetToken] = useState(0);
@@ -285,6 +297,10 @@ export default function HomePage() {
     setToast({ title, body, tone });
   }, []);
 
+  const playSound = useCallback((kind: "beep" | "warning" | "engine") => {
+    if (soundEnabled) synthSound(kind);
+  }, [soundEnabled]);
+
   const markProgress = useCallback(() => {
     lastProgressRef.current = Date.now();
     setHelpLevel(0);
@@ -302,7 +318,9 @@ export default function HomePage() {
     const timer = window.setInterval(() => {
       setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
       const idle = (Date.now() - lastProgressRef.current) / 1000;
-      const thresholds = stepRef.current <= 2 ? [35, 65, 95, 125] : stepRef.current === 3 ? [50, 90, 135, 180] : [90, 150, 210, 270];
+      const thresholds = structuredSupport
+        ? stepRef.current <= 2 ? [28, 52, 78, 105] : stepRef.current === 3 ? [42, 75, 112, 150] : [70, 120, 175, 230]
+        : stepRef.current <= 2 ? [35, 65, 95, 125] : stepRef.current === 3 ? [50, 90, 135, 180] : [90, 150, 210, 270];
       const nextLevel = idle >= thresholds[3] ? 4 : idle >= thresholds[2] ? 3 : idle >= thresholds[1] ? 2 : idle >= thresholds[0] ? 1 : 0;
       if (nextLevel > helpLevelRef.current) {
         setHelpLevel(nextLevel);
@@ -312,7 +330,7 @@ export default function HomePage() {
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [completed, record, showMessage, step]);
+  }, [completed, record, showMessage, step, structuredSupport]);
 
   useEffect(() => {
     if (step === 1 && checks.npc && checks.vehicle && stageComplete !== 1) {
@@ -342,9 +360,10 @@ export default function HomePage() {
     startedAtRef.current = Date.now();
     lastProgressRef.current = Date.now();
     setStep(1);
-    setBriefingOpen(true);
+    setTutorialProgress({ move: false, look: false });
+    setTutorialOpen(true);
     setPulse((value) => value + 1);
-    synthSound("beep");
+    playSound("beep");
     record("mission_start", "iniciado", "orden_de_trabajo");
   };
 
@@ -352,9 +371,9 @@ export default function HomePage() {
     setEvidence((current) => current.includes(id) ? current : [...current, id]);
     markProgress();
     showMessage(title, body, "success");
-    synthSound("beep");
+    playSound("beep");
     record(`evidence_${id}`, "descubierta", id);
-  }, [markProgress, record, showMessage]);
+  }, [markProgress, playSound, record, showMessage]);
 
   const applyDecision = useCallback((id: string) => {
     setPendingDecision(null);
@@ -362,7 +381,7 @@ export default function HomePage() {
       setRepaired(true);
       markProgress();
       showMessage("Decisión verificada", "La holgura de admisión insuficiente explica la pérdida de compresión. Ajustarla según el manual corrige la causa medida.", "success");
-      synthSound("beep");
+      playSound("beep");
       record("decision_valve_adjustment", "intervencion_correcta", "holgura_ajustada_0_20_mm");
       return;
     }
@@ -376,9 +395,9 @@ export default function HomePage() {
         ? "No existe evidencia que justifique desmontar la culata o intervenir los inyectores. Concéntrate en el componente que no cumple su holgura."
         : "Antes de desmontar conjuntos mayores, ajusta la válvula de admisión del cilindro 4 a 0,20 mm según el manual.";
     setAnalysisPause(feedback);
-    synthSound("warning");
+    playSound("warning");
     record(`decision_${id}`, "requiere_revision", `intento_${attempt}`);
-  }, [decisionAttempts, markProgress, record, showMessage]);
+  }, [decisionAttempts, markProgress, playSound, record, showMessage]);
 
   const handleInteract = useCallback((id: string) => {
     setPulse((value) => value + 1);
@@ -421,17 +440,17 @@ export default function HomePage() {
         setEngineRunning(true);
         markProgress();
         showMessage("El motor enciende", "La intervención produjo un cambio real. Falta comprobar que el código no reaparezca.", "success");
-        synthSound("engine");
+        playSound("engine");
         record("engine_start", "motor_operativo", "encendido_estable");
       } else if (id === "compression_test" && engineRunning) {
         setCompleted(true);
         markProgress();
         showMessage("Misión cumplida", "El cilindro 4 registra 10,8 bar y el motor mantiene un ralentí estable.", "success");
-        synthSound("beep");
+        playSound("beep");
         record("verify_final", "mision_cumplida", "compresion_10_8_bar_y_ralenti_estable");
       }
     }
-  }, [addEvidence, engineRunning, markProgress, record, showMessage]);
+  }, [addEvidence, engineRunning, markProgress, playSound, record, showMessage]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -471,14 +490,14 @@ export default function HomePage() {
         showMessage("Ya está en tu equipo", item.name, "info");
       } else if (tools.length >= 2) {
         showMessage("Inventario completo", "Descarta un instrumento antes de agregar otro.", "warning");
-        synthSound("warning");
+        playSound("warning");
         return;
       } else {
         setTools((current) => [...current, inspection]);
         showMessage("Instrumento seleccionado", `${item.name} quedó en tu inventario. Revisa el conjunto antes de confirmar la preparación.`, "info");
       }
       markProgress();
-      synthSound("beep");
+      playSound("beep");
       record(`select_${inspection}`, "seleccionado", item.name);
     } else {
       record(`leave_${inspection}`, "descartado", item.name);
@@ -559,6 +578,8 @@ export default function HomePage() {
     setPreparationReviewOpen(false);
     setAnalysisPause(null);
     setPaused(false);
+    setTutorialOpen(false);
+    setTutorialProgress({ move: false, look: false });
     setNavigation(null);
     setReflection("");
     telemetryRef.current = [];
@@ -567,6 +588,17 @@ export default function HomePage() {
 
   const touchKey = (code: string, down: boolean) => {
     window.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { code, bubbles: true }));
+  };
+
+  const handleTutorialAction = useCallback((action: "move" | "look") => {
+    setTutorialProgress((current) => current[action] ? current : { ...current, [action]: true });
+  }, []);
+
+  const finishTutorial = () => {
+    setTutorialOpen(false);
+    setBriefingOpen(true);
+    markProgress();
+    record("movement_tutorial_complete", "logrado", "mover_y_observar");
   };
 
   const score = useMemo(() => ({
@@ -642,9 +674,30 @@ export default function HomePage() {
           completedTargets={completedTargets}
           actionPulse={pulse}
           resetToken={resetToken}
+          cameraSensitivity={cameraSensitivity}
+          reducedMotion={reducedMotion}
           onNearbyChange={setNearby}
           onNavigationChange={setNavigation}
+          onTutorialAction={handleTutorialAction}
         />
+
+        {entryOpen && (
+          <div className="entry-backdrop">
+            <section className="entry-menu" role="dialog" aria-modal="true" aria-labelledby="entry-title">
+              <div className="entry-brand"><div className="brand-mark"><GraduationCap size={29} /><Wrench size={15} /></div><div><span>AULA TP CHILE</span><strong>Misión Laboral 3D</strong></div></div>
+              <div className="entry-heading"><span>MÓDULO 01 · AJUSTE DE MOTORES</span><h1 id="entry-title">Compresión perdida</h1><p>Configura la experiencia antes de ingresar al taller.</p></div>
+              <div className="entry-options">
+                <label className="entry-toggle"><input type="checkbox" checked={structuredSupport} onChange={(event) => setStructuredSupport(event.target.checked)} /><span><Accessibility size={19} /><b>Orientación estructurada</b><small>Instrucciones más directas y pistas anticipadas.</small></span></label>
+                <label className="entry-toggle"><input type="checkbox" checked={keepInstructions} onChange={(event) => setKeepInstructions(event.target.checked)} /><span><Target size={19} /><b>Mantener controles visibles</b><small>Conserva el recordatorio durante toda la misión.</small></span></label>
+                <label className="entry-toggle"><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /><span><Eye size={19} /><b>Reducir movimiento visual</b><small>Desactiva balanceos y animaciones ambientales.</small></span></label>
+                <label className="entry-toggle"><input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} /><span>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}<b>Sonidos de confirmación</b><small>Utiliza señales breves, sin sonidos arcade.</small></span></label>
+              </div>
+              <label className="sensitivity-control"><span><SlidersHorizontal size={18} /> Sensibilidad de cámara <b>{Math.round(cameraSensitivity * 100)}%</b></span><input type="range" min="0.5" max="1.3" step="0.1" value={cameraSensitivity} onChange={(event) => setCameraSensitivity(Number(event.target.value))} /></label>
+              <button type="button" className="entry-button" onClick={() => setEntryOpen(false)}><Play size={20} fill="currentColor" /> INGRESAR AL TALLER <ChevronRight size={22} /></button>
+              <p className="entry-note">Podrás cambiar estas opciones desde el menú de pausa.</p>
+            </section>
+          </div>
+        )}
 
         <header className="module-strip">
           <div className="module-icon"><Settings size={25} /></div>
@@ -764,6 +817,16 @@ export default function HomePage() {
           </div>
         )}
 
+        {tutorialOpen && (
+          <section className="practice-tutorial" aria-live="polite">
+            <div className="tutorial-top"><span>TUTORIAL PRÁCTICO</span><strong>{tutorialProgress.move && tutorialProgress.look ? "2/2" : tutorialProgress.move || tutorialProgress.look ? "1/2" : "0/2"}</strong></div>
+            <h2>{!tutorialProgress.move ? "Da tus primeros pasos" : !tutorialProgress.look ? "Observa el taller" : "Controles preparados"}</h2>
+            <p>{!tutorialProgress.move ? "Presiona W, A, S o D para mover al personaje." : !tutorialProgress.look ? "Arrastra el mouse sobre el taller para mover la cámara." : "Ya puedes desplazarte y observar. La tecla E aparecerá cuando estés cerca de un objeto."}</p>
+            <div className="tutorial-checks"><span className={tutorialProgress.move ? "done" : ""}>{tutorialProgress.move ? <Check size={15} /> : "1"} Moverse</span><span className={tutorialProgress.look ? "done" : ""}>{tutorialProgress.look ? <Check size={15} /> : "2"} Mirar</span></div>
+            {tutorialProgress.move && tutorialProgress.look && <button type="button" className="primary-action tutorial-continue" onClick={finishTutorial}>CONTINUAR A LA MISIÓN <ChevronRight size={18} /></button>}
+          </section>
+        )}
+
         {paused && (
           <div className="modal-backdrop pause-backdrop">
             <section className="guide-dialog pause-dialog" role="dialog" aria-modal="true" aria-labelledby="pause-title">
@@ -771,6 +834,13 @@ export default function HomePage() {
               <span className="dialog-eyebrow">MISIÓN EN PAUSA</span>
               <h2 id="pause-title">Compresión perdida</h2>
               <p>Tu avance permanece guardado. Continúa cuando estés listo para retomar el diagnóstico.</p>
+              <div className="pause-options">
+                <label><input type="checkbox" checked={structuredSupport} onChange={(event) => setStructuredSupport(event.target.checked)} /> Orientación estructurada</label>
+                <label><input type="checkbox" checked={keepInstructions} onChange={(event) => setKeepInstructions(event.target.checked)} /> Controles siempre visibles</label>
+                <label><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /> Reducir movimiento visual</label>
+                <label><input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} /> Sonidos de confirmación</label>
+                <label className="pause-sensitivity"><span>Sensibilidad de cámara: {Math.round(cameraSensitivity * 100)}%</span><input type="range" min="0.5" max="1.3" step="0.1" value={cameraSensitivity} onChange={(event) => setCameraSensitivity(Number(event.target.value))} /></label>
+              </div>
               <button type="button" className="primary-action guide-start" onClick={() => setPaused(false)}><Play size={18} fill="currentColor" /> CONTINUAR MISIÓN</button>
               <button type="button" className="secondary-action pause-restart" onClick={restart}><RotateCcw size={17} /> REINICIAR MISIÓN</button>
             </section>
@@ -930,7 +1000,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {missionStarted && step <= 2 && <div className="desktop-controls"><Footprints size={15} /> WASD mover · Shift rápido · C/Ctrl agacharse · arrastrar para mirar · E interactuar · Esc pausa <MousePointer2 size={15} /></div>}
+        {missionStarted && (step <= 2 || keepInstructions) && <div className="desktop-controls"><Footprints size={15} /> WASD mover · Shift rápido · C/Ctrl agacharse · arrastrar para mirar · E interactuar · Esc pausa <MousePointer2 size={15} /></div>}
       </section>
     </main>
   );
