@@ -108,7 +108,7 @@ const items: Record<string, { name: string; kind: ItemKind; useful: boolean; des
 
 const targetLabels: Record<string, string> = {
   npc: "Hablar con Mateo",
-  vehicle: "Inspeccionar el Ferrari F40 Liberty Walk",
+  vehicle: "Inspeccionar el vehículo",
   goggles: "Revisar lentes de seguridad",
   gloves: "Revisar guantes de protección",
   compression_gauge: "Revisar compresímetro",
@@ -141,7 +141,7 @@ const stageGuides: Record<number, StageGuide> = {
     time: "0:00–1:30",
     title: "Comprende la situación",
     brief: "Dirígete a la bahía de diagnóstico y reúne información inicial antes de intervenir.",
-    how: "Camina con WASD o los controles táctiles. Al acercarte, presiona E o el botón Interactuar.",
+    how: "Pulsa «Ir a este punto». Frente al vehículo, haz clic en el círculo iluminado o presiona E. Después habla con Mateo.",
     why: "Un diagnóstico seguro comienza reuniendo información antes de utilizar instrumentos.",
     completed: "Inspeccionaste el vehículo y obtuviste el relato técnico de la falla.",
     next: "Preparar EPP e instrumentos",
@@ -151,7 +151,7 @@ const stageGuides: Record<number, StageGuide> = {
     time: "1:30–3:00",
     title: "Prepara tu intervención",
     brief: "Dirígete a la zona de preparación e identifica el EPP y los instrumentos que necesitarás.",
-    how: "Acércate a cada objeto, inspecciónalo y confirma si lo agregarás. Puedes devolver un instrumento desde el inventario.",
+    how: "Sigue una actividad a la vez. En cada objeto confirma si lo necesitas. Si el inventario se llena con otro instrumento, devuélvelo desde el panel Equipo.",
     why: "Seleccionar EPP y herramientas pertinentes evita riesgos y reduce intervenciones innecesarias.",
     completed: "Elegiste el EPP y los instrumentos adecuados para diagnosticar el estado del motor.",
     next: "Investigar y relacionar evidencias",
@@ -161,7 +161,7 @@ const stageGuides: Record<number, StageGuide> = {
     time: "3:00–6:00",
     title: "Construye el diagnóstico",
     brief: "Reúne tres evidencias y relaciónalas: especificación del fabricante, compresión y holgura de válvulas.",
-    how: "Recorre el taller y utiliza la documentación y los instrumentos que preparaste. Tú eliges el orden.",
+    how: "Primero el manual. Después, en el capó, mide la compresión y al final la holgura de válvulas.",
     why: "Una conclusión técnica válida debe comparar las mediciones reales con las especificaciones del fabricante.",
     completed: "Relacionaste la especificación del fabricante con la compresión y la holgura medidas.",
     next: "Decidir e intervenir",
@@ -171,7 +171,7 @@ const stageGuides: Record<number, StageGuide> = {
     time: "6:00–8:30",
     title: "Decide con evidencia",
     brief: "Analiza tus hallazgos y decide qué intervención está mejor justificada. Ya no se destacará una respuesta específica.",
-    how: "Acércate a una ruta de intervención, selecciónala y confirma tu decisión antes de actuar.",
+    how: "Pulsa «Ir a este punto» para llegar al capó. Allí están las tres rutas: elige y confirma la que explican tus mediciones.",
     why: "En el trabajo real, intervenir sin evidencia puede generar costos, riesgos y nuevas fallas.",
     completed: "Ajustaste la holgura de válvulas porque las mediciones justificaban esa intervención.",
     next: "Comprobar el resultado",
@@ -181,11 +181,36 @@ const stageGuides: Record<number, StageGuide> = {
     time: "8:30–10:00",
     title: "Comprueba y cierra",
     brief: "Demuestra que la intervención resolvió la falla y verifica el sistema antes de cerrar la orden.",
-    how: "Aplica el procedimiento aprendido. La ayuda sigue disponible, pero la secuencia debes decidirla tú.",
+    how: "Enciende el motor desde la cabina y vuelve al capó para repetir la prueba de compresión.",
     why: "Una reparación solo se considera terminada cuando el resultado se comprueba con evidencia.",
     completed: "Confirmaste el funcionamiento estable y verificaste que la compresión se recuperara.",
     next: "Misión completada",
   },
+};
+
+const activities: Record<number, { title: string; how: string; target: string }[]> = {
+  1: [
+    { title: "Inspecciona el vehículo", how: "Pulsa «Ir a este punto». Frente al auto, haz clic en el círculo o presiona E.", target: "vehicle" },
+    { title: "Habla con Mateo", how: "Mateo está junto a la bahía. Acércate y pulsa Hablar, o la tecla E.", target: "npc" },
+  ],
+  2: [
+    { title: "Equipa los lentes de seguridad", how: "Ve al panel de EPP y confirma los lentes.", target: "goggles" },
+    { title: "Equipa los guantes", how: "Confirma los guantes de protección.", target: "gloves" },
+    { title: "Toma el compresímetro", how: "En herramientas, elige el instrumento que mide la presión de los cilindros. La llave dinamométrica no sirve para este diagnóstico.", target: "compression_gauge" },
+    { title: "Toma el juego de galgas", how: "Agrega el instrumento para medir la holgura de válvulas.", target: "feeler_gauge" },
+  ],
+  3: [
+    { title: "Consulta el manual de servicio", how: "Anota la compresión mínima y la holgura de admisión. Después volverás al vehículo.", target: "manual" },
+    { title: "Mide la compresión en el capó", how: "En el motor del vehículo, abre la prueba y registra cada cilindro.", target: "compression_test" },
+    { title: "Mide la holgura en el motor", how: "En el mismo capó, mide la holgura de la válvula de admisión.", target: "valve_clearance" },
+  ],
+  4: [
+    { title: "Elige la intervención en el capó", how: "Las tres rutas están juntas en el motor. Confirma la que explica la compresión de 7,2 bar y la holgura de 0,05 mm.", target: "hood" },
+  ],
+  5: [
+    { title: "Enciende el motor desde la cabina", how: "Acércate a la puerta del conductor y acciona el encendido.", target: "ignition" },
+    { title: "Vuelve a medir la compresión", how: "Con el motor en marcha, repite la prueba en el capó.", target: "compression_test" },
+  ],
 };
 
 function formatTime(total: number) {
@@ -257,6 +282,7 @@ export default function HomePage() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [cameraSensitivity, setCameraSensitivity] = useState(0.8);
+  const [approachToken, setApproachToken] = useState(0);
   const [navigation, setNavigation] = useState<{ label: string; distance: number; angle: number } | null>(null);
   const [pulse, setPulse] = useState(0);
   const [resetToken, setResetToken] = useState(0);
@@ -272,6 +298,8 @@ export default function HomePage() {
   const stepRef = useRef(step);
   const completedRef = useRef(completed);
   const helpLevelRef = useRef(helpLevel);
+  const focusRef = useRef<string | null>(null);
+  const focusHowRef = useRef("Sigue la actividad marcada en el panel.");
   stepRef.current = step;
   completedRef.current = completed;
   helpLevelRef.current = helpLevel;
@@ -432,6 +460,17 @@ export default function HomePage() {
   }, [decisionAttempts, markProgress, playSound, record, showMessage]);
 
   const handleInteract = useCallback((id: string) => {
+    const expected = focusRef.current;
+    const vehicleChoices = ["injectors", "head_gasket", "valve_adjustment"];
+    if (stepRef.current === 4) {
+      if (!vehicleChoices.includes(id)) {
+        showMessage("Sigue este paso", "Las intervenciones están en el capó del vehículo.", "info");
+        return;
+      }
+    } else if (expected && id !== expected && !(stepRef.current === 2 && items[id])) {
+      showMessage("Sigue este paso", focusHowRef.current, "info");
+      return;
+    }
     setPulse((value) => value + 1);
     if (stepRef.current === 1) {
       if (id === "npc") {
@@ -652,27 +691,54 @@ export default function HomePage() {
     ["compression", "Compresión cilindro 4: 7,2 bar"],
     ["clearance", "Holgura admisión: 0,05 mm"],
   ];
-  const currentInstruction = useMemo(() => {
-    if (step === 1) return checks.vehicle || checks.npc ? "Completa el reconocimiento con otra fuente de información." : "Dirígete a la bahía y reúne el contexto de la falla.";
-    if (step === 2) return "Inspecciona los elementos y prepara el conjunto que consideres necesario.";
-    if (step === 3) return evidence.length === 0 ? "Obtén una primera evidencia técnica." : evidence.length < 3 ? "Relaciona el hallazgo y busca otra evidencia." : "Compara las tres evidencias reunidas.";
-    if (step === 4) return "Elige la intervención mejor respaldada por las evidencias.";
-    if (step === 5) return engineRunning ? "Repite la prueba de compresión y registra el resultado." : "Comprueba el funcionamiento del motor.";
-    return objectives[0];
-  }, [checks.npc, checks.vehicle, engineRunning, evidence.length, step]);
+  const currentActivity = useMemo(() => {
+    const list = activities[step];
+    if (!list) return null;
+    if (step === 1) {
+      if (!checks.vehicle) return { ...list[0], index: 1, total: list.length };
+      if (!checks.npc) return { ...list[1], index: 2, total: list.length };
+      return null;
+    }
+    if (step === 2) {
+      const order = ["goggles", "gloves", "compression_gauge", "feeler_gauge"];
+      const owned = new Set([...epp, ...tools]);
+      const index = order.findIndex((id) => !owned.has(id));
+      if (index < 0) return null;
+      const activity = list[index];
+      const needsTool = activity.target === "compression_gauge" || activity.target === "feeler_gauge";
+      const toolFull = needsTool && tools.length >= 2 && !tools.includes(activity.target);
+      return {
+        ...activity,
+        index: index + 1,
+        total: list.length,
+        how: toolFull ? "Devuelve un instrumento desde el panel Equipo y toma el que pide esta actividad." : activity.how,
+      };
+    }
+    if (step === 3) {
+      const order = ["manual", "compression", "clearance"];
+      const index = order.findIndex((id) => !evidence.includes(id));
+      if (index < 0) return null;
+      return { ...list[index], index: index + 1, total: list.length };
+    }
+    if (step === 4) return repaired ? null : { ...list[0], index: 1, total: 1 };
+    if (!engineRunning) return { ...list[0], index: 1, total: list.length };
+    if (!completed) return { ...list[1], index: 2, total: list.length };
+    return null;
+  }, [checks.npc, checks.vehicle, completed, engineRunning, epp, evidence, repaired, step, tools]);
+  focusRef.current = currentActivity?.target ?? null;
+  focusHowRef.current = currentActivity?.how ?? "Sigue la actividad marcada en el panel.";
 
-  const currentHow = useMemo(() => {
-    if (step <= 2) return stageGuides[step]?.how || "Sigue la indicación visible.";
-    if (step === 3) return "Recorre el taller y utiliza los recursos preparados. Tú decides el orden.";
-    if (step === 4) return "Acércate a una ruta, selecciónala y confirma tu decisión.";
-    return "Aplica la secuencia aprendida y usa Ayuda solo si la necesitas.";
-  }, [step]);
+  const currentInstruction = currentActivity?.title
+    ?? (step === 2 && epp.length === 2 && tools.length === 2 ? "Revisa tu selección y confírmala." : objectives[Math.min(step, objectives.length - 1)]);
+  const currentHow = currentActivity?.how ?? stageGuides[step]?.how ?? "Sigue la actividad marcada en el panel.";
 
   const mentorCopy = step <= 2
-    ? ["Te oriento en el recorrido", "Siempre sabrás dónde ir y cómo interactuar; la selección técnica es tuya."]
+    ? ["Una actividad a la vez", "Pulsa Ir a este punto. En el círculo iluminado haz clic o presiona E."]
     : step === 3
-      ? ["Ahora relacionas la evidencia", "Tú eliges el recorrido; puedo darte pistas si las solicitas."]
-      : ["Es tu turno de decidir", "La ayuda sigue disponible, pero la decisión técnica es tuya."];
+      ? ["Primero el dato, después el motor", "El manual va antes de medir. La compresión y la holgura se hacen en el capó."]
+      : step === 4
+        ? ["Decide frente al capó", "Las tres rutas están juntas en el motor. Confirma la que explican tus mediciones."]
+        : ["Cierra la orden en el auto", "Enciende en la cabina y vuelve al capó para medir otra vez."];
   const completedTargets = useMemo(() => [
     checks.npc ? "npc" : "",
     checks.vehicle ? "vehicle" : "",
@@ -715,6 +781,9 @@ export default function HomePage() {
           cameraSensitivity={cameraSensitivity}
           cameraResetToken={cameraResetToken}
           reducedMotion={reducedMotion}
+          focusTarget={currentActivity?.target ?? null}
+          approachToken={approachToken}
+          onTargetActivate={handleInteract}
           onNearbyChange={setNearby}
           onNavigationChange={setNavigation}
           onTutorialAction={handleTutorialAction}
@@ -784,8 +853,10 @@ export default function HomePage() {
               </div>
             </div>
             <span className={`guidance-mode ${step <= 2 ? "guided" : step === 3 ? "supported" : "independent"}`}>{stageGuides[step].mode}</span>
+            {currentActivity && <span className="activity-count">Actividad {currentActivity.index} de {currentActivity.total}</span>}
             <strong>{currentInstruction}</strong>
-            {keepInstructions && <p><b>Cómo:</b> {currentHow}</p>}
+            {(keepInstructions || currentActivity) && <p><b>Cómo:</b> {currentHow}</p>}
+            {currentActivity && <button type="button" className="approach-button" onClick={() => setApproachToken((value) => value + 1)}><Footprints size={15} /> Ir a este punto</button>}
             <div className="mission-route" aria-label={`Progreso: etapa ${step} de 5, ${progressPercent}% completado`}>
               {routeLabels.map((label, index) => {
                 const value = index + 1;
@@ -874,7 +945,7 @@ export default function HomePage() {
           <section className="practice-tutorial" aria-live="polite">
             <div className="tutorial-top"><span>TUTORIAL PRÁCTICO</span><strong>{tutorialProgress.move && tutorialProgress.look ? "2/2" : tutorialProgress.move || tutorialProgress.look ? "1/2" : "0/2"}</strong></div>
             <h2>{!tutorialProgress.move ? "Da tus primeros pasos" : !tutorialProgress.look ? "Observa el taller" : "Controles preparados"}</h2>
-            <p>{!tutorialProgress.move ? "Presiona W, A, S o D para mover al personaje." : !tutorialProgress.look ? "Arrastra el mouse sobre el taller para mover la cámara." : "Ya puedes desplazarte y observar. La tecla E aparecerá cuando estés cerca de un objeto."}</p>
+            <p>{!tutorialProgress.move ? "Presiona W, A, S o D para mover al personaje." : !tutorialProgress.look ? "Arrastra el mouse sobre el taller para mover la cámara." : "Ya puedes moverte. En la misión, Ir a este punto te acerca; luego haz clic en el círculo o presiona E."}</p>
             <div className="tutorial-checks"><span className={tutorialProgress.move ? "done" : ""}>{tutorialProgress.move ? <Check size={15} /> : "1"} Moverse</span><span className={tutorialProgress.look ? "done" : ""}>{tutorialProgress.look ? <Check size={15} /> : "2"} Mirar</span></div>
             {tutorialProgress.move && tutorialProgress.look && <button type="button" className="primary-action tutorial-continue" onClick={finishTutorial}>CONTINUAR A LA MISIÓN <ChevronRight size={18} /></button>}
           </section>
@@ -1097,7 +1168,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {missionStarted && (step <= 2 || keepInstructions) && <div className="desktop-controls"><Footprints size={15} /> WASD mover · Shift rápido · arrastrar para mirar · E interactuar · Esc pausa <MousePointer2 size={15} /></div>}
+        {missionStarted && (step <= 2 || keepInstructions) && <div className="desktop-controls"><Footprints size={15} /> WASD mover · clic en el punto iluminado · E interactuar · Esc pausa <MousePointer2 size={15} /></div>}
       </section>
     </main>
   );

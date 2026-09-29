@@ -15,6 +15,9 @@ type Props = {
   cameraSensitivity: number;
   cameraResetToken: number;
   reducedMotion: boolean;
+  focusTarget: string | null;
+  approachToken: number;
+  onTargetActivate: (id: string) => void;
   onNearbyChange: (id: string | null) => void;
   onNavigationChange: (info: { label: string; distance: number; angle: number } | null) => void;
   onTutorialAction: (action: "move" | "look") => void;
@@ -740,19 +743,24 @@ export default function WorkshopScene({
   cameraSensitivity,
   cameraResetToken,
   reducedMotion,
+  focusTarget,
+  approachToken,
+  onTargetActivate,
   onNearbyChange,
   onNavigationChange,
   onTutorialAction,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, cameraResetToken, reducedMotion });
+  const stateRef = useRef({ active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, cameraResetToken, reducedMotion, focusTarget, approachToken });
   const nearbyCallbackRef = useRef(onNearbyChange);
   const navigationCallbackRef = useRef(onNavigationChange);
   const tutorialCallbackRef = useRef(onTutorialAction);
-  stateRef.current = { active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, cameraResetToken, reducedMotion };
+  const interactCallbackRef = useRef(onTargetActivate);
+  stateRef.current = { active, currentStep, helpLevel, engineRunning, completedTargets, actionPulse, resetToken, cameraSensitivity, cameraResetToken, reducedMotion, focusTarget, approachToken };
   nearbyCallbackRef.current = onNearbyChange;
   navigationCallbackRef.current = onNavigationChange;
   tutorialCallbackRef.current = onTutorialAction;
+  interactCallbackRef.current = onTargetActivate;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -891,7 +899,8 @@ export default function WorkshopScene({
     const npcTarget = addTarget(targets, "npc", [-1.9, 0, -2.8], [1], "Mateo · Técnico");
     npcTarget.children[1].position.y = 2.9;
     scene.add(npcTarget);
-    const vehicleTarget = addTarget(targets, "vehicle", [1.45, 0, 1.55], [1], "Ferrari F40");
+    const vehicleTarget = addTarget(targets, "vehicle", [1.45, 0, 1.35], [1], "Inspeccionar vehículo");
+    vehicleTarget.children[1].position.y = 2.15;
     scene.add(vehicleTarget);
 
     const toolPositions: Record<string, [number, number, number]> = {
@@ -913,25 +922,25 @@ export default function WorkshopScene({
     box(manualTarget, [0.85, 0.12, 0.65], [0, 1.33, 0], 0x1769ac, 0.5);
     box(manualTarget, [0.72, 0.02, 0.52], [0, 1.405, 0], 0xf4f6f2, 0.8);
     scene.add(manualTarget);
-    const compressionTarget = addTarget(targets, "compression_test", [0.0, 0, 0.65], [3, 5], "Prueba de compresión");
+    const compressionTarget = addTarget(targets, "compression_test", [4.95, 0, 0.85], [3, 5], "Capó · compresión");
     cylinder(compressionTarget, 0.23, 0.1, [0, 0.92, 0], 0xd9e2e5, 20).rotation.x = Math.PI / 2;
     cylinder(compressionTarget, 0.045, 0.62, [0, 0.55, 0], 0x26333d, 12);
     scene.add(compressionTarget);
-    const clearanceTarget = addTarget(targets, "valve_clearance", [6.35, 0, -0.25], [3], "Holgura de válvulas");
+    const clearanceTarget = addTarget(targets, "valve_clearance", [4.95, 0, -2.25], [3], "Capó · holgura");
     for (let i = 0; i < 5; i++) box(clearanceTarget, [0.055, 0.025, 0.5], [(i - 2) * 0.05, 0.72 + i * 0.012, 0], 0xbcc6ca, 0.25, 0.75);
     scene.add(clearanceTarget);
 
-    const injectorsTarget = addTarget(targets, "injectors", [0.15, 0, -3.95], [4], "Intervenir inyectores", 0xec6e50);
+    const injectorsTarget = addTarget(targets, "injectors", [4.9, 0, 0.9], [4], "Inyectores", 0xec6e50);
     for (let i = 0; i < 4; i++) cylinder(injectorsTarget, 0.07, 0.42, [-0.28 + i * 0.18, 0.75, 0], 0x4d606c, 12);
     scene.add(injectorsTarget);
-    const gasketTarget = addTarget(targets, "head_gasket", [5.7, 0, -3.65], [4], "Desmontar culata", 0xec6e50);
+    const gasketTarget = addTarget(targets, "head_gasket", [5.45, 0, -0.45], [4], "Culata", 0xec6e50);
     box(gasketTarget, [0.9, 0.22, 0.62], [0, 0.76, 0], 0x88969d, 0.3, 0.55);
     scene.add(gasketTarget);
-    const adjustmentTarget = addTarget(targets, "valve_adjustment", [6.45, 0, 0.75], [4], "Ajustar válvulas", 0x2cab6f);
+    const adjustmentTarget = addTarget(targets, "valve_adjustment", [4.9, 0, -1.7], [4], "Ajustar válvulas", 0x2cab6f);
     box(adjustmentTarget, [0.65, 0.2, 0.42], [0, 0.75, 0], 0x394850, 0.45);
     for (let i = 0; i < 4; i++) cylinder(adjustmentTarget, 0.05, 0.28, [-0.23 + i * 0.15, 0.94, 0], 0x2cab6f, 10);
     scene.add(adjustmentTarget);
-    const ignitionTarget = addTarget(targets, "ignition", [-0.05, 0, 1.75], [5], "Encendido");
+    const ignitionTarget = addTarget(targets, "ignition", [1.2, 0, -3.2], [5], "Cabina · encendido");
     box(ignitionTarget, [0.25, 0.25, 0.25], [0, 0.9, 0], 0xe0a93f, 0.35, 0.35);
     scene.add(ignitionTarget);
 
@@ -962,20 +971,54 @@ export default function WorkshopScene({
     ];
     const collides = (x: number, z: number) => obstacles.some((area) => area.containsPoint(new THREE.Vector2(x, z)));
 
+    const pickMeshes: THREE.Mesh[] = [];
+    for (const target of targets) {
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(1.55, 2.15, 1.55),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+      );
+      hit.position.y = 1.05;
+      hit.userData.pickId = target.id;
+      target.root.add(hit);
+      pickMeshes.push(hit);
+    }
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const pickTarget = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(pickMeshes, false);
+      const found = hits.find((entry) => entry.object.visible && entry.object.parent?.visible);
+      const id = found?.object.userData.pickId;
+      return typeof id === "string" ? id : null;
+    };
+
     const keys = new Set<string>();
     let orbitYaw = -0.38;
     let orbitPitch = 0.24;
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+    let pressHit: string | null = null;
+    let pressX = 0;
+    let pressY = 0;
     let lastNearby: string | null = null;
     let lastNavigationKey = "";
     let lastPulse = actionPulse;
     let focusUntil = 0;
     let lastReset = resetToken;
     let lastCameraReset = cameraResetToken;
+    let lastApproach = approachToken;
     let moveReported = false;
     let lookReported = false;
+    let walk: { x: number; z: number; interactId: string | null } | null = null;
+    const lookAt = (x: number, z: number) => {
+      orbitYaw = Math.atan2(-(x - avatar.position.x), -(z - avatar.position.z));
+      orbitPitch = 0.2;
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       keys.add(event.code);
       if (!moveReported && ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].includes(event.code)) {
@@ -985,6 +1028,13 @@ export default function WorkshopScene({
     };
     const onKeyUp = (event: KeyboardEvent) => keys.delete(event.code);
     const onPointerDown = (event: PointerEvent) => {
+      const picked = stateRef.current.active ? pickTarget(event) : null;
+      if (picked) {
+        pressHit = picked;
+        pressX = event.clientX;
+        pressY = event.clientY;
+        return;
+      }
       dragging = true;
       lastX = event.clientX;
       lastY = event.clientY;
@@ -1002,7 +1052,21 @@ export default function WorkshopScene({
       lastX = event.clientX;
       lastY = event.clientY;
     };
-    const onPointerUp = () => { dragging = false; };
+    const onPointerUp = (event: PointerEvent) => {
+      if (pressHit && Math.hypot(event.clientX - pressX, event.clientY - pressY) < 12) {
+        const id = pressHit;
+        const target = targets.find((entry) => entry.id === id);
+        if (target) {
+          const focus = stateRef.current.focusTarget;
+          const allowed = !focus || id === focus || focus === "hood" || stateRef.current.currentStep === 2;
+          const distance = Math.hypot(avatar.position.x - target.root.position.x, avatar.position.z - target.root.position.z);
+          if (allowed && distance > 2.6) walk = { x: target.root.position.x, z: target.root.position.z, interactId: id };
+          else interactCallbackRef.current(id);
+        }
+      }
+      pressHit = null;
+      dragging = false;
+    };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
@@ -1042,6 +1106,7 @@ export default function WorkshopScene({
         orbitPitch = 0.24;
         moveReported = false;
         lookReported = false;
+        walk = null;
       }
       if (game.cameraResetToken !== lastCameraReset) {
         lastCameraReset = game.cameraResetToken;
@@ -1054,7 +1119,38 @@ export default function WorkshopScene({
       }
 
       let moving = false;
-      if (game.active) {
+      const manualMove = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].some((code) => keys.has(code));
+      if (manualMove || !game.active) walk = null;
+      if (walk && game.active) {
+        const dx = walk.x - avatar.position.x;
+        const dz = walk.z - avatar.position.z;
+        const dist = Math.hypot(dx, dz);
+        const arrive = () => {
+          const arriveId = walk?.interactId ?? null;
+          if (walk) lookAt(walk.x, walk.z);
+          walk = null;
+          velocity.set(0, 0, 0);
+          if (arriveId) interactCallbackRef.current(arriveId);
+        };
+        if (dist < 1.15) {
+          arrive();
+        } else {
+          moving = true;
+          if (!moveReported) {
+            moveReported = true;
+            tutorialCallbackRef.current("move");
+          }
+          const step = Math.min(Math.max(dist - 0.9, 0), 4.4 * dt);
+          const nx = THREE.MathUtils.clamp(avatar.position.x + (dx / dist) * step, -15.4, 15.4);
+          const nz = THREE.MathUtils.clamp(avatar.position.z + (dz / dist) * step, -9.25, 11.2);
+          if (!collides(nx, avatar.position.z)) avatar.position.x = nx;
+          if (!collides(avatar.position.x, nz)) avatar.position.z = nz;
+          const face = Math.atan2(dx, dz);
+          avatar.rotation.y += Math.atan2(Math.sin(face - avatar.rotation.y), Math.cos(face - avatar.rotation.y)) * Math.min(1, dt * 10);
+          const nextDist = Math.hypot(walk.x - avatar.position.x, walk.z - avatar.position.z);
+          if (nextDist > dist - 0.01 && nextDist < 2.3) arrive();
+        }
+      } else if (game.active) {
         direction.set(0, 0, 0);
         forward.set(-Math.sin(orbitYaw), 0, -Math.cos(orbitYaw));
         right.set(Math.cos(orbitYaw), 0, -Math.sin(orbitYaw));
@@ -1078,7 +1174,7 @@ export default function WorkshopScene({
       } else {
         velocity.multiplyScalar(Math.exp(-14 * dt));
       }
-      if (velocity.lengthSq() > 0.0025) {
+      if (!walk && velocity.lengthSq() > 0.0025) {
         moving = true;
         const nextX = THREE.MathUtils.clamp(avatar.position.x + velocity.x * dt, -15.4, 15.4);
         const nextZ = THREE.MathUtils.clamp(avatar.position.z + velocity.z * dt, -9.25, 11.2);
@@ -1101,7 +1197,7 @@ export default function WorkshopScene({
       npcArm.rotation.z = game.reducedMotion ? -0.3 : -0.3 + Math.sin(time * 1.7) * 0.09;
 
       let nearest: Target | null = null;
-      let nearestDistance = 1.65;
+      let nearestDistance = Infinity;
       for (const target of targets) {
         const engineCondition = target.id !== "compression_test" || game.currentStep !== 5 || game.engineRunning;
         const available = target.steps.includes(game.currentStep) && engineCondition;
@@ -1109,21 +1205,20 @@ export default function WorkshopScene({
         if (!available || !game.active) continue;
         const distance = Math.hypot(avatar.position.x - target.root.position.x, avatar.position.z - target.root.position.z);
         const targetLabel = target.root.children.find((child) => child.userData.label);
-        const guided = game.currentStep <= 2;
-        const supported = game.currentStep === 3;
-        target.marker.visible = distance < 3 || game.helpLevel >= (guided ? 2 : supported ? 3 : 4);
-        if (targetLabel) {
-          targetLabel.visible = distance < 1.9 || game.helpLevel >= (guided ? 3 : supported ? 4 : 5);
-        }
-        if (distance < nearestDistance) {
+        const choice = game.currentStep === 4 && target.steps.includes(4);
+        const focused = choice || target.id === game.focusTarget;
+        const reach = focused ? 2.7 : 1.55;
+        const selectable = focused || game.currentStep === 2;
+        target.marker.visible = focused || distance < 3.4;
+        if (targetLabel) targetLabel.visible = focused || distance < 2.2;
+        if (selectable && distance < reach && distance < nearestDistance) {
           nearest = target;
           nearestDistance = distance;
         }
-        const basePulse = guided ? 0.07 : supported ? 0.045 : 0.025;
-        const pulse = 1 + Math.sin(time * 4.5) * basePulse + (game.helpLevel >= 3 ? 0.16 : 0);
-        target.marker.scale.setScalar(pulse);
+        const pulse = 1 + Math.sin(time * 4.5) * (focused ? 0.12 : 0.04);
+        target.marker.scale.setScalar(focused ? pulse * 1.35 : pulse);
         const markerMaterial = target.marker.material as THREE.MeshBasicMaterial;
-        markerMaterial.opacity = game.helpLevel >= 3 ? 0.96 : guided ? 0.78 : supported ? 0.56 : 0.38;
+        markerMaterial.opacity = focused ? 0.96 : 0.34;
       }
       const nearbyId = nearest?.id ?? null;
       if (nearbyId !== lastNearby) {
@@ -1132,37 +1227,16 @@ export default function WorkshopScene({
       }
 
       let destination: { label: string; x: number; z: number } | null = null;
-      if (game.currentStep === 1) {
-        const pending = targets.filter((target) => target.steps.includes(1) && !game.completedTargets.includes(target.id));
-        const closest = pending.sort((a, b) => {
-          const distanceA = Math.hypot(avatar.position.x - a.root.position.x, avatar.position.z - a.root.position.z);
-          const distanceB = Math.hypot(avatar.position.x - b.root.position.x, avatar.position.z - b.root.position.z);
-          return distanceA - distanceB;
-        })[0];
-        if (closest) destination = { label: closest.label, x: closest.root.position.x, z: closest.root.position.z };
+      if (game.focusTarget === "hood") {
+        destination = { label: "Frente al capó", x: 5.55, z: -0.4 };
+      } else if (game.focusTarget) {
+        const focus = targets.find((target) => target.id === game.focusTarget);
+        if (focus) destination = { label: focus.label, x: focus.root.position.x, z: focus.root.position.z };
       }
-      if (game.currentStep === 2) {
-        const pending = targets.filter((target) => target.steps.includes(2) && !game.completedTargets.includes(target.id));
-        const closest = pending.sort((a, b) => {
-          const distanceA = Math.hypot(avatar.position.x - a.root.position.x, avatar.position.z - a.root.position.z);
-          const distanceB = Math.hypot(avatar.position.x - b.root.position.x, avatar.position.z - b.root.position.z);
-          return distanceA - distanceB;
-        })[0];
-        if (closest) destination = { label: closest.label, x: closest.root.position.x, z: closest.root.position.z };
+      if (game.approachToken !== lastApproach) {
+        lastApproach = game.approachToken;
+        if (destination) walk = { x: destination.x, z: destination.z, interactId: null };
       }
-      if (game.currentStep === 3) {
-        const remaining = targets.filter((target) => target.steps.includes(3) && !game.completedTargets.includes(target.id));
-        const closest = remaining.sort((a, b) => {
-          const distanceA = Math.hypot(avatar.position.x - a.root.position.x, avatar.position.z - a.root.position.z);
-          const distanceB = Math.hypot(avatar.position.x - b.root.position.x, avatar.position.z - b.root.position.z);
-          return distanceA - distanceB;
-        })[0];
-        if (closest) destination = { label: "Punto de investigación", x: closest.root.position.x, z: closest.root.position.z };
-      }
-      if (game.currentStep === 4) destination = { label: "Área de procedimiento", x: 3.25, z: -2.1 };
-      if (game.currentStep === 5) destination = game.engineRunning
-        ? { label: "Punto de verificación", x: 0, z: 0.65 }
-        : { label: "Puesto de encendido", x: -0.05, z: 1.75 };
 
       navigationWaypoint.visible = Boolean(destination && game.currentStep > 0);
       if (destination) {

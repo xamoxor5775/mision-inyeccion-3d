@@ -100,6 +100,9 @@ button { font: inherit; }
 .objective-card > span { color: #1977bc; font-size: 11px; font-weight: 900; }
 .objective-card > strong { font-size: 15px; line-height: 1.35; }
 .objective-card p { margin: 0; color: #4a6782; font-size: 13px; line-height: 1.4; }
+.activity-count { color: #0d477c; font-size: 11px; font-weight: 800; }
+.approach-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 34px; margin-top: 2px; padding: 6px 10px; border: 0; border-radius: 8px; color: #fff; background: #0d477c; font-weight: 800; cursor: pointer; }
+.approach-button:hover { background: #15609e; }
 .objective-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .objective-heading > span { color: #1977bc; font-size: 11px; font-weight: 900; }
 .objective-actions { display: flex; gap: 6px; }
