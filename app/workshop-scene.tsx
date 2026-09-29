@@ -36,7 +36,153 @@ const boxGeometryCache = new Map<string, THREE.BoxGeometry>();
 const cylinderGeometryCache = new Map<string, THREE.CylinderGeometry>();
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
-type SurfaceTexture = "concrete" | "brushed-metal" | "rubber" | "paint";
+type SurfaceTexture = "concrete" | "brushed-metal" | "rubber" | "paint" | "wall" | "fabric";
+
+type SurfacePack = {
+  map: THREE.CanvasTexture;
+  bump: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+};
+
+const surfaceCache = new Map<string, SurfacePack>();
+
+function hash(n: number) {
+  const value = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function fbm(x: number, y: number) {
+  return hash(x * 1.7 + y * 9.2) * 0.55
+    + hash(x * 3.9 + y * 2.4) * 0.28
+    + hash(x * 8.1 + y * 7.3) * 0.17;
+}
+
+function ellipse(u: number, v: number, cx: number, cy: number, rx: number, ry: number) {
+  const dx = (u - cx) / rx;
+  const dy = (v - cy) / ry;
+  const d = dx * dx + dy * dy;
+  return d >= 1 ? 0 : 1 - d;
+}
+
+function paintSurface(surface: SurfaceTexture, size = 512) {
+  const color = new Uint8ClampedArray(size * size * 4);
+  const height = new Uint8ClampedArray(size * size * 4);
+  const rough = new Uint8ClampedArray(size * size * 4);
+  const set = (buffer: Uint8ClampedArray, i: number, r: number, g: number, b: number) => {
+    buffer[i] = r;
+    buffer[i + 1] = g;
+    buffer[i + 2] = b;
+    buffer[i + 3] = 255;
+  };
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const v = y / size;
+      const grain = fbm(x * 0.11, y * 0.11);
+      const fine = hash(x * 13.1 + y * 17.7);
+      let r = 168;
+      let g = 170;
+      let b = 166;
+      let bump = 128;
+      let roughness = 210;
+      if (surface === "concrete") {
+        r = 146 + grain * 28;
+        g = 148 + grain * 24;
+        b = 144 + grain * 20;
+        const joint = (u % 0.5 < 0.012 || u % 0.5 > 0.488 || v % 0.5 < 0.012 || v % 0.5 > 0.488) ? 1 : 0;
+        const oil = ellipse(u, v, 0.32, 0.62, 0.16, 0.09) * 0.85 + ellipse(u, v, 0.74, 0.28, 0.1, 0.07) * 0.65;
+        const tire = Math.abs(Math.sin((v + grain * 0.02) * 40)) < 0.08 && u > 0.15 && u < 0.9 ? 0.35 : 0;
+        r -= joint * 28 + oil * 42 + tire * 18;
+        g -= joint * 26 + oil * 36 + tire * 16;
+        b -= joint * 22 + oil * 30 + tire * 14;
+        r += (fine - 0.5) * 10;
+        g += (fine - 0.5) * 10;
+        b += (fine - 0.5) * 8;
+        bump = 150 + grain * 40 - joint * 70 - oil * 24 + (fine - 0.5) * 18;
+        roughness = 188 + grain * 24 - oil * 90 - tire * 20;
+      } else if (surface === "wall") {
+        r = 214 + grain * 16;
+        g = 218 + grain * 14;
+        b = 214 + grain * 12;
+        const dirt = Math.max(0, v - 0.78) * 1.8;
+        const roller = Math.sin(y * 0.85) * 4;
+        r += roller - dirt * 22 + (fine - 0.5) * 8;
+        g += roller - dirt * 18 + (fine - 0.5) * 8;
+        b += roller - dirt * 14 + (fine - 0.5) * 6;
+        bump = 132 + grain * 18 + roller - dirt * 10;
+        roughness = 196 + dirt * 20;
+      } else if (surface === "brushed-metal") {
+        const brush = Math.sin(y * 1.7 + grain * 6) * 10 + (fine - 0.5) * 16;
+        const scratch = hash(Math.floor(y / 3) * 4.2) > 0.985 ? 28 : 0;
+        r = 132 + brush + scratch;
+        g = 142 + brush + scratch;
+        b = 146 + brush * 0.6 + scratch;
+        bump = 120 + brush * 1.4 + scratch;
+        roughness = scratch ? 90 : 150 + fine * 30;
+      } else if (surface === "rubber") {
+        const groove = Math.abs(((u * 8 + v * 3) % 1) - 0.5) < 0.18 ? -18 : 8;
+        r = 28 + fine * 10 + groove;
+        g = 32 + fine * 8 + groove;
+        b = 34 + fine * 8 + groove;
+        bump = 110 + groove * 2;
+        roughness = 230;
+      } else if (surface === "fabric") {
+        const weave = ((x + y) % 4 < 2 ? 18 : -8) + (fine - 0.5) * 12;
+        r = 196 + weave;
+        g = 198 + weave;
+        b = 196 + weave;
+        bump = 128 + weave;
+        roughness = 220;
+      } else {
+        const flake = grain * 20 + (fine - 0.5) * 8;
+        r = 214 + flake;
+        g = 218 + flake;
+        b = 216 + flake;
+        bump = 140 + flake;
+        roughness = 70 + fine * 25;
+      }
+      const i = (y * size + x) * 4;
+      set(color, i, r, g, b);
+      const bh = Math.max(0, Math.min(255, bump));
+      set(height, i, bh, bh, bh);
+      const rh = Math.max(0, Math.min(255, roughness));
+      set(rough, i, rh, rh, rh);
+    }
+  }
+  const colorCanvas = document.createElement("canvas");
+  const bumpCanvas = document.createElement("canvas");
+  const roughCanvas = document.createElement("canvas");
+  for (const [canvas, data] of [[colorCanvas, color], [bumpCanvas, height], [roughCanvas, rough]] as const) {
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    ctx.putImageData(new ImageData(data, size, size), 0, 0);
+  }
+  return { colorCanvas, bumpCanvas, roughCanvas };
+}
+
+function surfacePack(surface: SurfaceTexture, repeat: [number, number]) {
+  const key = `${surface}:${repeat.join(":")}`;
+  const cached = surfaceCache.get(key);
+  if (cached) return cached;
+  const painted = paintSurface(surface);
+  const make = (canvas: HTMLCanvasElement, srgb: boolean) => {
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeat[0], repeat[1]);
+    texture.anisotropy = 8;
+    return texture;
+  };
+  const pack = {
+    map: make(painted.colorCanvas, true),
+    bump: make(painted.bumpCanvas, false),
+    roughnessMap: make(painted.roughCanvas, false),
+  };
+  surfaceCache.set(key, pack);
+  return pack;
+}
 
 function material(color: number, roughness = 0.65, metalness = 0.05) {
   const key = `${color}:${roughness}:${metalness}`;
@@ -46,97 +192,6 @@ function material(color: number, roughness = 0.65, metalness = 0.05) {
     materialCache.set(key, cached);
   }
   return cached;
-}
-
-function proceduralTexture(surface: SurfaceTexture, repeat: [number, number]) {
-  const key = `${surface}:${repeat.join(":")}`;
-  let cached = textureCache.get(key);
-  if (cached) return cached;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
-  const context = canvas.getContext("2d")!;
-  const noise = (seed: number) => {
-    const value = Math.sin(seed * 12.9898) * 43758.5453;
-    return value - Math.floor(value);
-  };
-
-  if (surface === "concrete") {
-    context.fillStyle = "#aebbc0";
-    context.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 1100; i++) {
-      const alpha = 0.035 + noise(i * 3.1) * 0.09;
-      context.fillStyle = `rgba(42,58,65,${alpha})`;
-      const size = 1 + noise(i * 7.7) * 3;
-      context.fillRect(noise(i * 1.7) * 256, noise(i * 2.4) * 256, size, size);
-    }
-    context.strokeStyle = "rgba(245,250,250,.13)";
-    context.lineWidth = 1;
-    for (let i = 0; i < 15; i++) {
-      context.beginPath();
-      context.moveTo(noise(i * 4.6) * 256, noise(i * 5.8) * 256);
-      context.lineTo(noise(i * 8.2) * 256, noise(i * 9.1) * 256);
-      context.stroke();
-    }
-  } else if (surface === "brushed-metal") {
-    const gradient = context.createLinearGradient(0, 0, 256, 0);
-    gradient.addColorStop(0, "#667981");
-    gradient.addColorStop(0.5, "#a7b7bc");
-    gradient.addColorStop(1, "#52666f");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 180; i++) {
-      context.strokeStyle = `rgba(255,255,255,${0.04 + noise(i * 3.4) * 0.12})`;
-      context.lineWidth = 0.5 + noise(i * 4.9);
-      const y = noise(i * 1.8) * 256;
-      context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(256, y + (noise(i * 6.2) - 0.5) * 5);
-      context.stroke();
-    }
-  } else if (surface === "rubber") {
-    context.fillStyle = "#111a21";
-    context.fillRect(0, 0, 256, 256);
-    context.strokeStyle = "rgba(141,158,165,.2)";
-    context.lineWidth = 5;
-    for (let i = -256; i < 512; i += 28) {
-      context.beginPath();
-      context.moveTo(i, 0);
-      context.lineTo(i + 120, 256);
-      context.stroke();
-    }
-    context.strokeStyle = "rgba(0,0,0,.35)";
-    context.lineWidth = 3;
-    for (let i = -256; i < 512; i += 28) {
-      context.beginPath();
-      context.moveTo(i + 10, 0);
-      context.lineTo(i + 130, 256);
-      context.stroke();
-    }
-  } else {
-    const gradient = context.createLinearGradient(0, 0, 256, 256);
-    gradient.addColorStop(0, "#f7fbfc");
-    gradient.addColorStop(0.45, "#dfe9ed");
-    gradient.addColorStop(1, "#b9ccd4");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 256, 256);
-    context.strokeStyle = "rgba(255,255,255,.32)";
-    context.lineWidth = 7;
-    context.beginPath();
-    context.moveTo(-20, 205);
-    context.lineTo(205, -20);
-    context.stroke();
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(...repeat);
-  texture.anisotropy = 4;
-  textureCache.set(key, texture);
-  return texture;
 }
 
 function texturedMaterial(
@@ -149,10 +204,15 @@ function texturedMaterial(
   const key = `${color}:${roughness}:${metalness}:${surface}:${repeat.join(":")}`;
   let cached = materialCache.get(key);
   if (!cached) {
+    const pack = surfacePack(surface, repeat);
+    const bumpScale = surface === "concrete" ? 0.12 : surface === "brushed-metal" ? 0.05 : surface === "wall" ? 0.035 : 0.02;
     cached = new THREE.MeshStandardMaterial({
       color,
-      map: proceduralTexture(surface, repeat),
+      map: pack.map,
+      bumpMap: pack.bump,
+      bumpScale,
       roughness,
+      roughnessMap: pack.roughnessMap,
       metalness,
     });
     materialCache.set(key, cached);
@@ -168,6 +228,7 @@ function box(
   roughness = 0.65,
   metalness = 0.05,
   surface?: SurfaceTexture,
+  repeat: [number, number] = [1, 1],
 ) {
   const geometryKey = size.join(":");
   let geometry = boxGeometryCache.get(geometryKey);
@@ -175,7 +236,7 @@ function box(
     geometry = new THREE.BoxGeometry(...size);
     boxGeometryCache.set(geometryKey, geometry);
   }
-  const mesh = new THREE.Mesh(geometry, surface ? texturedMaterial(color, roughness, metalness, surface) : material(color, roughness, metalness));
+  const mesh = new THREE.Mesh(geometry, surface ? texturedMaterial(color, roughness, metalness, surface, repeat) : material(color, roughness, metalness));
   mesh.position.set(...position);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -423,7 +484,7 @@ function makeAulaTpWorkshopShell(scene: THREE.Scene) {
   // Repeated panels establish a reusable Aula TP industrial architecture without changing the map.
   for (let i = 0; i < 7; i++) {
     const x = -14.4 + i * 4.8;
-    box(scene, [4.62, 1.28, 0.08], [x, 0.64, -10.2], graphite, 0.76, 0.12, "brushed-metal");
+    box(scene, [4.62, 1.28, 0.08], [x, 0.64, -10.2], 0xc5d0d4, 1, 0.72, "brushed-metal", [2, 1]);
     box(scene, [4.62, 0.11, 0.1], [x, 1.34, -10.15], aulaBlue, 0.48, 0.2);
     box(scene, [0.08, 3.55, 0.11], [x + 2.35, 3.05, -10.13], seam, 0.68, 0.2);
   }
@@ -431,14 +492,14 @@ function makeAulaTpWorkshopShell(scene: THREE.Scene) {
     const x = side * 16.62;
     for (let i = 0; i < 5; i++) {
       const z = -8 + i * 4;
-      box(scene, [0.08, 1.28, 3.82], [x, 0.64, z], graphite, 0.76, 0.12, "brushed-metal");
+      box(scene, [0.08, 1.28, 3.82], [x, 0.64, z], 0xc5d0d4, 1, 0.72, "brushed-metal", [1, 2]);
       box(scene, [0.1, 0.11, 3.82], [x - side * 0.05, 1.34, z], aulaBlue, 0.48, 0.2);
       box(scene, [0.11, 3.55, 0.08], [x - side * 0.04, 3.05, z + 1.96], seam, 0.68, 0.2);
     }
   }
 
   // Segmented vehicle access and a matching pedestrian service door.
-  box(scene, [5.5, 4.45, 0.12], [-12.8, 2.23, -10.08], warmTechnicalWhite, 0.72, 0.15);
+  box(scene, [5.5, 4.45, 0.12], [-12.8, 2.23, -10.08], warmTechnicalWhite, 0.9, 0.08, "paint", [2, 2]);
   for (let i = 0; i < 5; i++) box(scene, [5.18, 0.075, 0.04], [-12.8, 0.47 + i * 0.89, -9.99], 0x82959c, 0.45, 0.42);
   for (const x of [-14.35, -12.8, -11.25]) box(scene, [0.08, 0.48, 0.05], [x, 3.56, -9.98], 0x4d7787, 0.35, 0.35);
   box(scene, [1.45, 2.45, 0.13], [14.65, 1.23, -10.07], 0x294953, 0.65, 0.38);
@@ -546,7 +607,8 @@ function makeCar(scene: THREE.Scene) {
       car.add(model);
     },
     undefined,
-    () => {
+    (error) => {
+      console.error("No se pudo cargar el Ferrari F40", error);
       // If the GLB fails, keep a readable bay placeholder so the mission still works.
       extrudedProfile(car, [
         [-2.42, 0.06], [-2.48, 0.38], [-2.18, 0.62], [-1.55, 0.7],
@@ -558,63 +620,134 @@ function makeCar(scene: THREE.Scene) {
   return { car, engine, statusLight };
 }
 
-function restKenArms(model: THREE.Object3D) {
-  // The source mesh is a T-pose. Both the polo sleeves and the arms stick
-  // straight out, so folding only the arms leaves the sleeves raised like wings.
-  // Drop sleeves and arms together from the shoulder seam.
-  model.traverse((object) => {
-    if (!(object instanceof THREE.Mesh)) return;
-    const geometry = object.geometry;
-    const position = geometry.getAttribute("position");
-    if (!position) return;
-    const pivotY = 1.45;
-    const pivotX = 0.16;
-    const drop = (88 * Math.PI) / 180;
-    let changed = false;
-    for (let i = 0; i < position.count; i++) {
-      const x = position.getX(i);
-      const y = position.getY(i);
-      const z = position.getZ(i);
-      const reach = Math.abs(x);
-      if (reach < 0.18 || y < 1.28 || y > 1.58) continue;
-      const side = Math.sign(x) || 1;
-      const weight = reach >= 0.24 ? 1 : (reach - 0.18) / 0.06;
-      const angle = -side * drop * weight;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      const originX = side * pivotX;
-      const localX = x - originX;
-      const localY = y - pivotY;
-      position.setXYZ(
-        i,
-        localX * cos - localY * sin + originX,
-        localX * sin + localY * cos + pivotY,
-        z,
-      );
-      changed = true;
-    }
-    if (!changed) return;
-    position.needsUpdate = true;
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-  });
+type PersonRig = {
+  root: THREE.Group;
+  leftArm: THREE.Group;
+  rightArm: THREE.Group;
+  leftLeg: THREE.Group;
+  rightLeg: THREE.Group;
+};
+
+function buildWorkshopPerson(
+  parent: THREE.Object3D,
+  palette: { cloth: number; pants: number; skin: number; hair: number; boots: number; stripe: number },
+): PersonRig {
+  const root = new THREE.Group();
+  parent.add(root);
+  const cloth = texturedMaterial(palette.cloth, 0.92, 0.02, "fabric", [3, 3]);
+  const pants = texturedMaterial(palette.pants, 0.94, 0.02, "fabric", [3, 3]);
+  const skin = material(palette.skin, 0.55);
+  const hairMat = material(palette.hair, 0.72);
+  const bootMat = texturedMaterial(palette.boots, 0.95, 0.08, "rubber", [2, 2]);
+  const stripe = material(palette.stripe, 0.38, 0.18);
+
+  const limb = (length: number, radius: number, mat: THREE.Material) => {
+    const group = new THREE.Group();
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, Math.max(length - radius * 2, 0.04), 4, 10), mat);
+    mesh.position.y = -length / 2;
+    mesh.castShadow = true;
+    group.add(mesh);
+    return group;
+  };
+
+  const leftLeg = limb(0.78, 0.11, pants);
+  leftLeg.position.set(-0.14, 0.94, 0);
+  const rightLeg = limb(0.78, 0.11, pants);
+  rightLeg.position.set(0.14, 0.94, 0);
+  root.add(leftLeg, rightLeg);
+  for (const leg of [leftLeg, rightLeg]) {
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), bootMat);
+    boot.position.set(0, -0.8, 0.05);
+    boot.castShadow = true;
+    leg.add(boot);
+  }
+
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.48, 4, 12), cloth);
+  torso.position.y = 1.3;
+  torso.castShadow = true;
+  root.add(torso);
+  const band = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.07, 0.3), stripe);
+  band.position.set(0, 1.16, 0.04);
+  band.castShadow = true;
+  root.add(band);
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.16), material(0xf4f7f8, 0.6));
+  collar.position.set(0, 1.56, 0.08);
+  root.add(collar);
+
+  const leftArm = limb(0.62, 0.075, cloth);
+  leftArm.position.set(-0.36, 1.5, 0);
+  const rightArm = limb(0.62, 0.075, cloth);
+  rightArm.position.set(0.36, 1.5, 0);
+  root.add(leftArm, rightArm);
+  for (const arm of [leftArm, rightArm]) {
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 8), skin);
+    hand.position.y = -0.66;
+    hand.castShadow = true;
+    arm.add(hand);
+  }
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 10), skin);
+  neck.position.y = 1.64;
+  root.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 18, 14), skin);
+  head.position.y = 1.82;
+  head.castShadow = true;
+  root.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.198, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), hairMat);
+  hair.position.y = 1.86;
+  root.add(hair);
+  return { root, leftArm, rightArm, leftLeg, rightLeg };
 }
 
-function fitWorkshopCharacter(model: THREE.Object3D) {
-  // Match the previous technician: about 2.2 units tall, feet on the floor,
-  // body centered on the movement origin. The mesh already faces +Z, which is
-  // the direction the avatar walks.
-  const box = new THREE.Box3().setFromObject(model);
-  const size = box.getSize(new THREE.Vector3());
-  const scale = 2.2 / Math.max(size.y, 0.01);
-  model.scale.multiplyScalar(scale);
-  model.updateMatrixWorld(true);
-  const fitted = new THREE.Box3().setFromObject(model);
-  const center = fitted.getCenter(new THREE.Vector3());
-  model.position.x -= center.x;
-  model.position.z -= center.z;
-  model.position.y -= fitted.min.y;
+function makeServiceBay(scene: THREE.Scene) {
+  for (const x of [-2.45, 5.25]) {
+    box(scene, [0.22, 3.2, 0.22], [x, 1.6, -1.05], 0x1a4f78, 0.42, 0.38);
+    box(scene, [0.36, 0.1, 0.36], [x, 3.22, -1.05], 0xf1c94d, 0.45, 0.22);
+    const towardBay = x < 0 ? 0.42 : -0.42;
+    box(scene, [0.62, 0.07, 0.18], [x + towardBay, 0.12, -1.55], 0x243844, 0.34, 0.55);
+    box(scene, [0.62, 0.07, 0.18], [x + towardBay, 0.12, -0.55], 0x243844, 0.34, 0.55);
+  }
+
+  box(scene, [2.4, 0.08, 0.55], [1.45, 3.62, -1.05], 0x141c22, 0.4, 0.55);
+  box(scene, [2.05, 0.05, 0.28], [1.45, 3.55, -1.05], 0xfff6d8, 0.2, 0.05);
+  const lamp = new THREE.PointLight(0xfff1c4, 8, 9, 1.5);
+  lamp.position.set(1.45, 3.35, -1.05);
+  scene.add(lamp);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const context = canvas.getContext("2d")!;
+  context.fillStyle = "#14344c";
+  context.fillRect(0, 0, 512, 256);
+  context.fillStyle = "#f1c94d";
+  context.fillRect(0, 0, 22, 256);
+  context.fillStyle = "#f7fbff";
+  context.font = "700 58px Arial";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText("BAHÍA 01", 276, 96);
+  context.fillStyle = "#d5e6ee";
+  context.font = "600 30px Arial";
+  context.fillText("AJUSTE DE MOTORES", 276, 162);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const plate = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.6, 1.3),
+    new THREE.MeshStandardMaterial({ map: texture, roughness: 0.82 }),
+  );
+  plate.rotation.x = -Math.PI / 2;
+  plate.position.set(1.45, 0.03, 2.7);
+  plate.receiveShadow = true;
+  scene.add(plate);
+
+  const chest = new THREE.Group();
+  box(chest, [1.15, 0.72, 0.62], [0, 0.5, 0], 0xc7463e, 0.55, 0.18);
+  box(chest, [1.15, 0.42, 0.62], [0, 1.08, 0], 0xa33a34, 0.55, 0.18);
+  for (const y of [0.5, 1.08]) box(chest, [0.86, 0.03, 0.02], [0, y, 0.32], 0xf2f5f6, 0.4, 0.3);
+  for (const px of [-0.38, 0.38]) cylinder(chest, 0.08, 0.08, [px, 0.1, 0.18], 0x1c2429, 12).rotation.x = Math.PI / 2;
+  chest.position.set(7.35, 0, 2.35);
+  scene.add(chest);
 }
 
 function makeAvatar(scene: THREE.Scene) {
@@ -622,62 +755,36 @@ function makeAvatar(scene: THREE.Scene) {
   avatar.position.set(-1.6, 0, 5.8);
   avatar.rotation.y = -0.45;
   scene.add(avatar);
-
-  const loader = new GLTFLoader();
-  loader.load(publicAssetPath("/models/ken-dreamhouse.glb"), (gltf) => {
-    const model = gltf.scene;
-    model.name = "ken-dreamhouse";
-    model.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
-      }
-    });
-    restKenArms(model);
-    fitWorkshopCharacter(model);
-    avatar.add(model);
+  const rig = buildWorkshopPerson(avatar, {
+    cloth: 0x174a78,
+    pants: 0x12375c,
+    skin: 0xc68642,
+    hair: 0x2a211c,
+    boots: 0x1b2126,
+    stripe: 0xf1c94d,
   });
-  return avatar;
+  return { root: avatar, leftArm: rig.leftArm, rightArm: rig.rightArm, leftLeg: rig.leftLeg, rightLeg: rig.rightLeg };
 }
 
 function makeNpc(scene: THREE.Scene) {
   const npc = new THREE.Group();
-  const fallback = new THREE.Group();
-  const uniform = material(0x174a78);
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.78, 6, 12), uniform);
-  body.position.y = 1.22;
-  fallback.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 12), material(0xb97954));
-  head.position.y = 2.07;
-  fallback.add(head);
-  const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.58, 5, 10), uniform);
-  arm.position.set(0.45, 1.28, 0);
-  arm.rotation.z = -0.3;
-  fallback.add(arm);
-  npc.add(fallback);
   npc.position.set(-1.9, 0, -2.8);
+  npc.rotation.y = 0.55;
   scene.add(npc);
-
-  const loader = new GLTFLoader();
-  loader.load(publicAssetPath("/models/mechanic.glb"), (gltf) => {
-    const model = gltf.scene;
-    model.name = "mechanic-character";
-    model.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      object.castShadow = true;
-      object.receiveShadow = true;
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      for (const entry of materials) {
-        if (entry instanceof THREE.MeshStandardMaterial || entry instanceof THREE.MeshPhysicalMaterial) {
-          entry.envMapIntensity = 1.05;
-        }
-      }
-    });
-    fitWorkshopCharacter(model);
-    fallback.visible = false;
-    npc.add(model);
+  const rig = buildWorkshopPerson(npc, {
+    cloth: 0x2f5670,
+    pants: 0x243f52,
+    skin: 0xa86b45,
+    hair: 0x8d9196,
+    boots: 0x1b2126,
+    stripe: 0x2aa36c,
   });
-  return { npc, arm };
+  rig.rightArm.rotation.x = -0.55;
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.04), material(0xf4f1e8, 0.7));
+  board.position.set(0.02, -0.62, 0.08);
+  board.castShadow = true;
+  rig.rightArm.add(board);
+  return { root: npc, arm: rig.rightArm };
 }
 
 function makeToolModel(id: string) {
@@ -797,26 +904,26 @@ export default function WorkshopScene({
       box(scene, [3.2, 0.08, 0.34], [x, 6.48, -2], 0xf6fbff, 0.15, 0.2);
     }
 
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 25), texturedMaterial(0xb8c1c6, 0.86, 0.02, "concrete", [7, 5]));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 25), texturedMaterial(0xd5dbd6, 1, 0.02, "concrete", [5, 4]));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
-    const floorGrid = new THREE.GridHelper(34, 34, 0x7d929d, 0x9fadb4);
-    floorGrid.material.opacity = 0.19;
+    const floorGrid = new THREE.GridHelper(34, 17, 0x6d7c78, 0x8b9893);
+    floorGrid.material.opacity = 0.08;
     floorGrid.material.transparent = true;
     scene.add(floorGrid);
-    box(scene, [11.7, 0.014, 6.2], [1.45, 0.012, -1.0], 0x9eafb5, 0.62);
-    box(scene, [6.2, 0.015, 5.4], [-11.4, 0.013, -5.0], 0x879ba4, 0.62);
-    box(scene, [6.1, 0.015, 5.2], [11.6, 0.013, 6.3], 0x9aabb1, 0.62);
+    box(scene, [11.7, 0.02, 6.2], [1.45, 0.016, -1.0], 0xc3cac4, 1, 0.02, "concrete", [3, 2]);
+    box(scene, [6.2, 0.02, 5.4], [-11.4, 0.016, -5.0], 0xb7c0b8, 1, 0.02, "concrete", [2, 2]);
+    box(scene, [6.1, 0.02, 5.2], [11.6, 0.016, 6.3], 0xc3cac4, 1, 0.02, "concrete", [2, 2]);
     for (const z of [-4.15, 2.15]) box(scene, [13.5, 0.018, 0.11], [1.4, 0.016, z], 0xf1c94d);
     for (const x of [-4.9, 7.7]) {
       box(scene, [0.11, 0.02, 5.9], [x, 0.018, -1.0], 0xf1c94d);
       box(scene, [0.58, 0.021, 0.13], [x, 0.019, 2.1], 0xf1c94d);
     }
 
-    box(scene, [34, 7.5, 0.35], [0, 3.75, -10.4], 0xdfe5e4, 0.82);
-    box(scene, [0.35, 7.5, 25], [-16.8, 3.75, 0], 0xd9e1e1, 0.82);
-    box(scene, [0.35, 7.5, 25], [16.8, 3.75, 0], 0xd9e1e1, 0.82);
+    box(scene, [34, 7.5, 0.35], [0, 3.75, -10.4], 0xf2f5f3, 1, 0.02, "wall", [8, 3]);
+    box(scene, [0.35, 7.5, 25], [-16.8, 3.75, 0], 0xe7eeea, 1, 0.02, "wall", [6, 3]);
+    box(scene, [0.35, 7.5, 25], [16.8, 3.75, 0], 0xe7eeea, 1, 0.02, "wall", [6, 3]);
     makeAulaTpWorkshopShell(scene);
     makeCeilingSystem(scene);
     for (const x of [-13.2, -7.7, -2.2, 3.3, 8.8, 14.3]) {
@@ -887,13 +994,16 @@ export default function WorkshopScene({
     injectionBench.position.set(9.7, 0, 8.65);
     scene.add(injectionBench);
 
-    for (const z of [-3.55, 1.15]) {
-      box(scene, [0.48, 5.9, 0.48], [0.25, 2.95, z], 0x1464a5, 0.35);
-      box(scene, [1.8, 0.18, 0.5], [1.1, 0.55, z], 0x154f82, 0.4);
+    for (const x of [-14.6, 14.6]) {
+      box(scene, [0.42, 5.9, 0.42], [x, 2.95, -6.4], 0x1464a5, 0.35);
+      box(scene, [1.5, 0.16, 0.42], [x > 0 ? x - 0.7 : x + 0.7, 0.55, -6.4], 0x154f82, 0.4);
     }
     const { statusLight } = makeCar(scene);
-    const { npc, arm: npcArm } = makeNpc(scene);
-    const avatar = makeAvatar(scene);
+    makeServiceBay(scene);
+    const npcRig = makeNpc(scene);
+    const npc = npcRig.root;
+    const avatarRig = makeAvatar(scene);
+    const avatar = avatarRig.root;
 
     const targets: Target[] = [];
     const npcTarget = addTarget(targets, "npc", [-1.9, 0, -2.8], [1], "Mateo · Técnico");
@@ -1015,6 +1125,7 @@ export default function WorkshopScene({
     let moveReported = false;
     let lookReported = false;
     let walk: { x: number; z: number; interactId: string | null } | null = null;
+    // Camera view is (-sin(orbitYaw), -cos(orbitYaw)). Point that view at (x, z).
     const lookAt = (x: number, z: number) => {
       orbitYaw = Math.atan2(-(x - avatar.position.x), -(z - avatar.position.z));
       orbitPitch = 0.2;
@@ -1187,14 +1298,17 @@ export default function WorkshopScene({
       }
       const crouching = keys.has("KeyC") || keys.has("ControlLeft") || keys.has("ControlRight");
       avatar.scale.y = THREE.MathUtils.lerp(avatar.scale.y, crouching ? 0.72 : 1, 1 - Math.pow(0.005, dt));
-      const stride = game.reducedMotion ? 0 : moving ? Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9)) * 0.58 : Math.sin(time * 2) * 0.025;
-      const bodyLift = game.reducedMotion || !moving ? 0 : Math.abs(Math.sin(time * (keys.has("ShiftLeft") ? 13 : 9))) * 0.035;
+      const stride = game.reducedMotion ? 0 : moving ? Math.sin(time * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 13 : 9)) * 0.72 : Math.sin(time * 1.6) * 0.045;
+      const bodyLift = game.reducedMotion || !moving ? 0 : Math.abs(Math.sin(time * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 13 : 9))) * 0.035;
       avatar.position.y = THREE.MathUtils.lerp(avatar.position.y, bodyLift, 1 - Math.pow(0.02, dt));
+      avatarRig.leftArm.rotation.x = stride;
+      avatarRig.rightArm.rotation.x = -stride;
+      avatarRig.leftLeg.rotation.x = -stride * 0.9;
+      avatarRig.rightLeg.rotation.x = stride * 0.9;
       const inspecting = performance.now() < focusUntil;
       avatar.rotation.x = THREE.MathUtils.lerp(avatar.rotation.x, inspecting ? 0.22 : 0, 1 - Math.pow(0.02, dt));
-      avatar.rotation.z = stride * 0.08;
-      npc.rotation.y = game.reducedMotion ? 0.4 : Math.sin(time * 0.5) * 0.08 + 0.4;
-      npcArm.rotation.z = game.reducedMotion ? -0.3 : -0.3 + Math.sin(time * 1.7) * 0.09;
+      npc.rotation.y = game.reducedMotion ? 0.55 : Math.sin(time * 0.5) * 0.08 + 0.55;
+      npcRig.arm.rotation.x = game.reducedMotion ? -0.55 : -0.55 + Math.sin(time * 1.7) * 0.06;
 
       let nearest: Target | null = null;
       let nearestDistance = Infinity;
@@ -1306,7 +1420,11 @@ export default function WorkshopScene({
           object.geometry.dispose();
           const materials = Array.isArray(object.material) ? object.material : [object.material];
           materials.forEach((entry) => {
-            if ("map" in entry && entry.map instanceof THREE.Texture) entry.map.dispose();
+            if (entry instanceof THREE.MeshStandardMaterial) {
+              entry.map?.dispose();
+              entry.bumpMap?.dispose();
+              entry.roughnessMap?.dispose();
+            }
             entry.dispose();
           });
         }
@@ -1316,6 +1434,7 @@ export default function WorkshopScene({
       boxGeometryCache.clear();
       cylinderGeometryCache.clear();
       textureCache.clear();
+      surfaceCache.clear();
     };
   }, []);
 
